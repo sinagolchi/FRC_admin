@@ -90,10 +90,28 @@ def transaction_management():
             st.success('Transaction log cleared')
             time.sleep(2)
             st.experimental_rerun()
+        col1, col2, col3 = st.columns(3)
 
-        confirm_clear_log = st.button(label='Clear transaction log')
+        with col1:
+            confirm_clear_log = st.button(label='Clear transaction log')
         if confirm_clear_log:
             clear_transaction_log()
+
+        def reinitial_main_raster():
+            curA = conn.cursor()
+            curA.execute("UPDATE budget_lb1 SET cb=ib, delta=0, r1_tax=false, r2_tax=false, r3_tax=false, r1_vote=null, r2_vote=null, r3_vote=null, r1_insurance = false, r2_insurance = false, r3_insurance = false;")
+            conn.commit()
+            with st.spinner('Reinitializing the main raster'):
+                time.sleep(2)
+            st.success('Raster reinitialized')
+            time.sleep(2)
+            st.experimental_rerun()
+
+        with col2:
+            confirm_reinit_raster = st.button(label='Reinitialize main raster')
+
+        if confirm_reinit_raster:
+            reinitial_main_raster()
 
     def transaction_revert(id):
         revert_query_sender = ("UPDATE budget_lb1 SET cb=cb+%s WHERE role=%s;")

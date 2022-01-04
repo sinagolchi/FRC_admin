@@ -70,10 +70,10 @@ def change_round(set_round):
     time.sleep(2)
     st.experimental_rerun()
 
-if round_change:
+if phase_change:
     change_phase(set_phase)
 
-if phase_change:
+if round_change:
     change_round(set_round)
 
 st.markdown("""___""")

@@ -4,6 +4,7 @@ import time
 import pytz
 import seaborn as sns
 import pandas as pd
+from random import randrange
 
 st.set_page_config(layout='wide') #set streamlit page to wide mode
 
@@ -155,6 +156,54 @@ def transaction_management():
 
 transaction_management()
 
+#flood conttrol centre
+
+damage_flood_dict = {'Ice jam winter flooding':{'light': ['ENGO', 'EM', 'F'], 'heavy':['CRA-MHA']}, 'Freshet flood':{'light':['EM','M','CRA-MV'],'heavy':['CRA-HV','CRA-MHA']},'Storm surge winter flooding':{'light':['M','WW','DP'],'heavy':['CRA-MHA','CRA-HV','LBO']},
+                     'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['DP'],'heavy':['CRA-MV']},'Future sea level rise':{'light':['CRA-MHA','M','CRA-HV',],'heavy':['WW','LBO','DP']}}
+def flood_centre():
+    def flooding():
+        flood_type = randrange(1,8)
+        st.write(flood_dict[flood_type])
+        curA = conn.cursor()
+        dict_flood_round = {1:"{" + str(flood_dict[flood_type]) + ",NULL,NULL}", 2:"{"+str(df_v.loc[board,'floods'][0])+"," + str(flood_dict[flood_type]) + ",NULL}" , 3:"{"+str(df_v.loc[board,'floods'][0])+","+str(df_v.loc[board,'floods'][1])+"," + str(flood_dict[flood_type]) + "}"}
+        curA.execute("UPDATE frc_long_variables SET floods=%s WHERE board=%s;",(dict_flood_round[int(df_v.loc[board,'round'])],int(board)))
+        conn.commit()
+        with st.spinner('Waiting for flood'):
+            time.sleep(2)
+        st.success(str(flood_dict[flood_type]) + ' in effect')
+
+    st.markdown('''___''')
+    st.header('Flood event')
+    flood_dict = {1: 'Ice jam winter flooding' , 2: 'Freshet flood', 3: 'Storm surge winter flooding',4: 'Convective summer storm' , 5: 'Minor localized flooding', 6: 'Future sea level rise' , 7: 'No flooding'}
+    if df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1] is None:
+        generate_flood = st.button('Roll the dice')
+        if generate_flood:
+            flooding()
+    else:
+        st.info(df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1])
+
+    st.markdown('''___''')
+    st.subheader('Damage analysis')
+    lightly_affected = []
+    severity = []
+    insured = []
+    heavily_affected = []
+    if damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]] is not None:
+        for user in damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]]['light']:
+            lightly_affected.append(user)
+            severity.append('light')
+        for user in damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]]['heavy']:
+            heavily_affected.append(user)
+            severity.append('heavy')
+    st.write(lightly_affected)
+
+
+flood_centre()
+
+
+
+
+#Voting section
 st.markdown("""___""")
 
 def voting_status():
@@ -166,3 +215,4 @@ def voting_status():
 
 
 voting_status()
+

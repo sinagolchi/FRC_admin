@@ -8,6 +8,30 @@ from random import randrange
 
 st.set_page_config(layout='wide') #set streamlit page to wide mode
 
+user_dict = {
+    'M':'Mayor',
+    'LEF':'Large Engineering Firm',
+    'DP': 'District Planner',
+    'EM': 'Emergency Manager',
+    'ENGO': 'Environmental ENGO',
+    'F': 'Farmer',
+    'FP': 'Federal Government',
+    'FN': 'First Nations',
+    'I': 'Insurance Company',
+    'J': 'Journalist',
+    'LD': 'Land Developer',
+    'LBO': 'Local Business',
+    'PUC': 'Power Utility',
+    'CRA-HV': 'Community Residence - High Value',
+    'CRA-MHA': 'Community Residence - Mobile Home',
+    'CRA-MV': ' Community Residence - Mediume value',
+    'PH': 'Hydrologist',
+    'PP': 'Provincial Politician',
+    'TA': 'Transport Authority',
+    'WW': 'Waste and Water Treatment Director'
+}
+user_dict_inv= {v:k for k,v in user_dict.items()}
+
 phase_dict = {0: 'Adjusting tax rate (for government only)', 1: 'Taxes', 2: 'Bidding on features', 3: 'Transactions', 4: 'Flood and damage analysis', 5: 'Vote'}
 phase_dict_inv = {v:k for k, v in phase_dict.items()}
 
@@ -160,6 +184,8 @@ transaction_management()
 
 damage_flood_dict = {'Ice jam winter flooding':{'light': ['ENGO', 'EM', 'F'], 'heavy':['CRA-MHA']}, 'Freshet flood':{'light':['EM','M','CRA-MV'],'heavy':['CRA-HV','CRA-MHA']},'Storm surge winter flooding':{'light':['M','WW','DP'],'heavy':['CRA-MHA','CRA-HV','LBO']},
                      'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['DP'],'heavy':['CRA-MV']},'Future sea level rise':{'light':['CRA-MHA','M','CRA-HV',],'heavy':['WW','LBO','DP']}}
+
+qulified_for_DRP = ['CRA-HV','CRA-MV','CRA-MHA','ENGO','F']
 def flood_centre():
     def flooding():
         flood_type = randrange(1,8)
@@ -188,14 +214,123 @@ def flood_centre():
     severity = []
     insured = []
     heavily_affected = []
+    protected = []
+    DRP_eligiblity = []
+
     if damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]] is not None:
         for user in damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]]['light']:
             lightly_affected.append(user)
             severity.append('light')
+            if df.loc[user,'r'+str(df_v.loc[board,'round'])+'_insurance']:
+                insured.append(True)
+            else:
+                insured.append((False))
+
         for user in damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]]['heavy']:
             heavily_affected.append(user)
             severity.append('heavy')
-    st.write(lightly_affected)
+            if df.loc[user,'r'+str(df_v.loc[board,'round'])+'_insurance']:
+                insured.append(True)
+            else:
+                insured.append(False)
+
+        for user in damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]]['light']:
+            if user in qulified_for_DRP:
+                DRP_eligiblity.append(True)
+            else:
+                DRP_eligiblity.append(False)
+
+        for user in damage_flood_dict[df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1]]['heavy']:
+            if user in qulified_for_DRP:
+                DRP_eligiblity.append(True)
+            else:
+                DRP_eligiblity.append(False)
+
+
+    # st.markdown('lightly effected')
+    # st.write(insured)
+    # st.write(lightly_affected)
+    # st.markdown('heavily effected')
+    # st.write(heavily_affected)
+    damage_amount = []
+    insurance_rebate = []
+
+    protected_roles = st.multiselect(label='Protected roles (Refer to board)', options=lightly_affected + heavily_affected)
+    protected = [True if user in protected_roles else False for user in lightly_affected+heavily_affected]
+    flood_damage = pd.DataFrame(zip(lightly_affected + heavily_affected, severity, insured, protected, DRP_eligiblity),
+                                columns=['Roles', 'Severity', 'Insured', 'Protected by measures','Eligible for DRP - 3 units'])
+    flood_damage.set_index('Roles', inplace=True)
+
+    for user in flood_damage.index:
+        if flood_damage.loc[user,'Severity'] == 'light':
+            init_dmg = df.loc[user,'ib']/4
+            if flood_damage.loc[user,'Insured']:
+                i_r = init_dmg*(3/4)
+                insurance_rebate.append(init_dmg*(3/4))
+            else:
+                insurance_rebate.append(0)
+                i_r = 0
+            damage_amount.append(init_dmg)
+        else:
+            init_dmg = df.loc[user,'ib'] / 2
+            if flood_damage.loc[user, 'Insured']:
+                i_r = init_dmg*(3/4)
+                insurance_rebate.append(init_dmg*(3/4))
+            else:
+                insurance_rebate.append(0)
+                i_r = 0
+            damage_amount.append(init_dmg)
+
+    flood_damage['Insurance rebate'] = insurance_rebate
+    flood_damage['Payable damage'] = damage_amount
+
+    st.dataframe(flood_damage)
+
+    def submit_flood_details():
+        for user in flood_damage.index:
+            curA = conn.cursor()
+            curA.execute("UPDATE budget_lb1 SET r%s_flood='{%s,%s,%s}' WHERE role=%s;",(int(df_v.loc[board,'round']),True,bool(flood_damage.loc[user,'Protected by measures']),float(flood_damage.loc[user,'Payable damage']),user))
+            conn.commit()
+
+    def submit_insurance():
+        curA = conn.cursor()
+        for user in flood_damage.index:
+            if flood_damage.loc[user,'Insured']:
+
+                curA.execute("UPDATE budget_lb1 SET cb=cb+%s WHERE role=%s",(int(flood_damage.loc[user,'Insurance rebate']),user))
+                curA.execute("UPDATE budget_lb1 SET delta=%s WHERE role=%s",
+                             (int(flood_damage.loc[user, 'Insurance rebate']), user))
+        curA.execute("UPDATE budget_lb1 SET cb=cb-%s WHERE role=%s",(int(flood_damage['Insurance rebate'].sum()),'I'))
+        curA.execute("UPDATE budget_lb1 SET delta=-%s WHERE role=%s",
+                     (int(flood_damage['Insurance rebate'].sum()), 'I'))
+        conn.commit()
+        with st.spinner('Processing insurance claim'):
+            time.sleep(2)
+        st.success('Insurance claim went through')
+        time.sleep(2)
+
+
+    col1, col2, col3  = st.columns(3)
+    with col1:
+        flood_submit = st.button(label='Submit flood details')
+    with col3:
+        insurance_submit = st.button(label='Submit insurance claim')
+
+    if flood_submit:
+        submit_flood_details()
+
+    if insurance_submit:
+        submit_insurance()
+
+    # def update_damage_analysis(users,severity,protected):
+
+
+
+
+
+
+
+
 
 
 flood_centre()

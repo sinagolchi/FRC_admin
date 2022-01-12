@@ -138,6 +138,21 @@ def transaction_management():
         if confirm_reinit_raster:
             reinitial_main_raster()
 
+        def reset_flood_event():
+            cursor = conn.cursor()
+            cursor.execute("UPDATE frc_long_variables SET floods='{NULL,NULL,NULL}' WHERE board=%s;",[board])
+            conn.commit()
+            with st.spinner('Resetting flood events'):
+                time.sleep(2)
+            st.success('Flood events cleared')
+
+
+        with col3:
+            reset_flood_confirm = st.button(label='Reset all flood events')
+
+        if reset_flood_confirm:
+            reset_flood_event()
+
     def transaction_revert(id):
         revert_query_sender = ("UPDATE budget_lb1 SET cb=cb+%s WHERE role=%s;")
         revert_query_receiver = ("UPDATE budget_lb1 SET cb=cb-%s WHERE role=%s;")

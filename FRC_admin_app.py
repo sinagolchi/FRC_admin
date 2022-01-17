@@ -281,7 +281,7 @@ def flood_centre():
                 conn.commit()
                 with st.spinner('Submitting flood details to players'):
                     time.sleep(2)
-                st.seccess('Flood details is updated')
+                st.success('Flood details is updated')
                 time.sleep(1)
                 st.experimental_rerun()
 

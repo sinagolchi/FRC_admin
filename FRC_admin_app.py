@@ -275,15 +275,18 @@ def flood_centre():
         st.dataframe(flood_damage)
 
         def submit_flood_details():
+
             for user in flood_damage.index:
+                st.write(user)
+                time.sleep(2)
                 curA = conn.cursor()
                 curA.execute("UPDATE budget_lb1 SET r%s_flood='{%s,%s,%s}' WHERE role=%s;",(int(df_v.loc[board,'round']),True,bool(flood_damage.loc[user,'Protected by measures']),float(flood_damage.loc[user,'Cost of damage']),user))
                 conn.commit()
-                with st.spinner('Submitting flood details to players'):
-                    time.sleep(2)
-                st.success('Flood details is updated')
-                time.sleep(1)
-                st.experimental_rerun()
+            with st.spinner('Submitting flood details to players'):
+                time.sleep(2)
+            st.success('Flood details is updated')
+            time.sleep(1)
+            st.experimental_rerun()
 
 
         def submit_insurance():
@@ -383,7 +386,8 @@ def dev_tools():
             st.success('Query committed to DB')
 
         st.button(label='Perform query',help='Do not click on this unless you are given specific instructions', on_click=perform_query)
-
+    with st.expander('Database table'):
+        st.dataframe(df)
 
 def tax_payment_status():
     st.markdown('''___''')

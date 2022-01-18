@@ -391,7 +391,7 @@ def dev_tools():
 
 def tax_payment_status():
     st.markdown('''___''')
-    st.header('Tax and mendatory payments')
+    st.header('Tax and mandatory payments')
     col1, col2 = st.columns(2)
     def styler(val):
         color = 'red' if val == False else ('green' if val == True else 'gray')

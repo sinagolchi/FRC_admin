@@ -6,6 +6,7 @@ import seaborn as sns
 import pandas as pd
 from random import randrange
 from pathlib import Path
+import streamlit.components.v1 as components
 
 st.set_page_config(layout='wide') #set streamlit page to wide mode
 
@@ -15,6 +16,10 @@ def refresh():
 
 def read_markdown_file(markdown_file):
     return Path(markdown_file).read_text()
+
+def styler(val):
+    color = 'red' if val == False else ('green' if val == True else 'gray')
+    return 'color: %s' % color
 
 user_dict = {
     'M':'Mayor',
@@ -270,7 +275,7 @@ def flood_centre():
         st.experimental_rerun()
 
     st.markdown('''___''')
-    with st.expander('Flood Event help'):
+    with st.expander('Flood Event checklist'):
         st.markdown(read_markdown_file('checklists/Flood.md'))
     st.header('Flood event')
     confirm_rerun = st.button(label='Refresh Data', key='flood section')
@@ -339,10 +344,10 @@ def flood_centre():
         damage_amount = []
         insurance_rebate = []
 
-        protected_roles = st.multiselect(label='Protected roles (Refer to board)', options=lightly_affected + heavily_affected)
+        protected_roles = [user_dict_inv[b] for b in st.multiselect(label='Protected roles (Refer to board)', options=[user_dict[x] for x in lightly_affected] + [user_dict[x] for x in heavily_affected])]
         protected = [True if user in protected_roles else False for user in lightly_affected+heavily_affected]
         flood_damage = pd.DataFrame(zip(lightly_affected + heavily_affected, severity, insured, protected, DRP_eligiblity),
-                                    columns=['Roles', 'Severity', 'Insured', 'Protected by measures','Eligible for DRP - 3 units'])
+                                    columns=['Roles', 'Severity', 'Insured', 'Protected by\n measures','Eligible for DRP \n (3 units)'])
         flood_damage.set_index('Roles', inplace=True)
 
         for user in flood_damage.index:
@@ -367,9 +372,11 @@ def flood_centre():
 
         flood_damage['Cost of damage'] = damage_amount
         flood_damage['Insurance rebate'] = insurance_rebate
+        flood_damage.rename(index=user_dict, inplace=True)
+        flood_damage_styled = flood_damage.style.applymap(styler)
 
 
-        st.dataframe(flood_damage)
+        st.dataframe(flood_damage_styled)
 
         def submit_flood_details():
 
@@ -380,9 +387,11 @@ def flood_centre():
 
             df = get_sql('budget_lb' + str(board))
             df.set_index('role', inplace=True)
+
             for user in flood_damage.index:
-                curA = conn.cursor()
+
                 if not df.loc[user, 'r'+str(g_round)+'_flood'][1]:
+                    curA = conn.cursor()
                     curA.execute("UPDATE budget_lb%s SET ib=ib-%s, delta = -%s WHERE role=%s;", (
                     int(board),
                     int(df.loc[user, 'r'+str(g_round)+'_flood'][2]),int(df.loc[user, 'r'+str(g_round)+'_flood'][2]), user))
@@ -497,32 +506,45 @@ def dev_tools():
 
 def tax_payment_status():
     st.markdown('''___''')
+    with st.expander('Update budget checklist'):
+        st.markdown(read_markdown_file('checklists/update budget.md'))
     st.header('Tax and mandatory payments')
     confirm_rerun = st.button(label='Refresh Data', key='Tax section')
     if confirm_rerun:
         refresh()
     col1, col2 = st.columns(2)
-    def styler(val):
-        color = 'red' if val == False else ('green' if val == True else 'gray')
-        return 'color: %s' % color
+
     with col1:
         st.subheader('Who paid tax')
-        df_tax = df[['r'+str(df_v.loc[board,'round'])+'_tax']].style.applymap(styler)
-        st.dataframe(df_tax)
+        df_tax = df[['r'+str(df_v.loc[board,'round'])+'_tax']]
+        df_tax.rename(index=user_dict, inplace=True)
+        df_tax_styled = df_tax.style.applymap(styler)
+        st.dataframe(df_tax_styled)
 
     with col2:
         st.subheader('Who paid mandatory costs')
-        df_payment = df[['r' + str(df_v.loc[board, 'round']) + '_m_payment']].style.applymap(styler)
-        st.dataframe(df_payment)
+        df_payment = df[['r' + str(df_v.loc[board, 'round']) + '_m_payment']]
+        df_payment.rename(index=user_dict, inplace=True)
+        df_payment_styled = df_payment.style.applymap(styler)
+        st.dataframe(df_payment_styled)
 
 
 
 #Voting section
-st.markdown("""___""")
+
 
 def voting_status():
+    st.markdown("""___""")
+    with st.expander('Vote status checklist'):
+        st.markdown(read_markdown_file('checklists/Vote.md'))
     st.header('Voting management')
-    st.dataframe(df[['r1_vote','r2_vote','r3_vote']])
+    confirm_rerun = st.button(label='Refresh Data', key='vote section')
+    if confirm_rerun:
+        refresh()
+    df_vote = df[['r'+str(g_round)+'_vote']]
+    #df_vote.set_index('role',inplace=True)
+    df_vote.rename(index=user_dict, inplace=True)
+    st.dataframe(df_vote)
     def end_current_session():
         curA = conn.cursor()
         curA.execute("UPDATE frc_long_variables SET r%s_vote_override=%s WHERE board=%s",(int(g_round),True,int(board)))
@@ -535,6 +557,26 @@ def voting_status():
     end_vote_session = st.button(label='End current vote session and show results')
     if end_vote_session:
         end_current_session()
+
+    st.subheader('Vote results (preview)')
+    try:
+        vote = []
+        vote_g_round = []
+        official = []
+        for r in range(1, 4):
+            for v in df.loc[:, 'r' + str(r) + '_vote']:
+                if v is not None:
+                    for i, o in zip(range(3), ['Mayor', 'Provincial politician', 'Federal politician']):
+                        vote.append(v[i])
+                        official.append(o)
+                        vote_g_round.append(r)
+        df_vote_result = pd.DataFrame(zip(vote, official, vote_g_round), columns=['Votes', 'Official', 'Game round'])
+        sns.set_theme(style='darkgrid', palette='colorblind')
+        fig = sns.catplot(data=df_vote_result, x='Votes', col='Official', kind='count', row='Game round')
+        st.pyplot(fig)
+    except:
+        st.info('No result to show yet, keep refreshing the data')
+        pass
 
 #main page start
 
@@ -555,4 +597,18 @@ if df_authen.loc[username,'level'] == 1:
 
 if admin_phase_dict[set_phase] is not None:
     admin_phase_dict[set_phase]()
+
+st.markdown('''___''')
+st.subheader('Miro board ' + str(int(board)))
+miro_dict = {1:['https://miro.com/app/live-embed/uXjVOR_le6g=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_le6g=/?invite_link_id=835958382187'],
+             2:['https://miro.com/app/live-embed/uXjVOR_gfI0=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_gfI0=/?invite_link_id=53493355924'],
+             3:['https://miro.com/app/live-embed/uXjVOR_g16s=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_g16s=/?invite_link_id=349135164503'],
+             4:['https://miro.com/app/live-embed/uXjVOR_hQ8o=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_hQ8o=/?invite_link_id=471512594109'],
+             5:['https://miro.com/app/live-embed/uXjVOR_h058=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_h058=/?invite_link_id=575464384272'],
+             6:['https://miro.com/app/live-embed/uXjVOR_h1vw=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_h1vw=/?invite_link_id=87971323805']}
+
+with st.expander('Miro board', expanded=True):
+    components.iframe(miro_dict[int(board)][0],height=740)
+    st.write("Open board in a new tab [link]("+miro_dict[int(board)][1]+')')
+
 dev_tools()

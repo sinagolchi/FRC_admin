@@ -1,5 +1,7 @@
 ## Phase 1A: FRM measure bidding 
-Follow the check list below
+In this phase students will discuss and bid on different measures to protect Hydrason from flood
+
+### Checklist:
 
 1. Notify students to rerun and refresh data to see the phase settings  
 1. Set a timer in Miro for 12 minutes (Remember to give students updates on time left and advise them to be mindful of time)  

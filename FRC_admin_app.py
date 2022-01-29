@@ -381,13 +381,13 @@ def flood_centre():
             df = get_sql('budget_lb' + str(board))
             df.set_index('role', inplace=True)
             for user in flood_damage.index:
-
                 curA = conn.cursor()
-                curA.execute("UPDATE budget_lb%s SET ib=ib-%s, delta = -%s WHERE role=%s;", (
-                int(board),
-                int(df.loc[user, 'r'+str(g_round)+'_flood'][2]),int(df.loc[user, 'r'+str(g_round)+'_flood'][2]), user))
+                if not df.loc[user, 'r'+str(g_round)+'_flood'][1]:
+                    curA.execute("UPDATE budget_lb%s SET ib=ib-%s, delta = -%s WHERE role=%s;", (
+                    int(board),
+                    int(df.loc[user, 'r'+str(g_round)+'_flood'][2]),int(df.loc[user, 'r'+str(g_round)+'_flood'][2]), user))
+                    conn.commit()
 
-                conn.commit()
             with st.spinner('Submitting flood details to players'):
                 time.sleep(2)
             st.success('Flood details is updated')

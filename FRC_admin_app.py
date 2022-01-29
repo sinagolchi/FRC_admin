@@ -462,6 +462,7 @@ def dev_tools():
                 curA.execute("UPDATE budget_lb%s SET r1_tax=NULL, r2_tax=NULL, r3_tax=NULL WHERE role=%s;",(int(board),user))
 
             curA.execute("UPDATE budget_lb%s SET r1_m_payment=NULL, r2_m_payment= NULL, r3_m_payment = NULL WHERE role='J';",(int(board),))
+            curA.execute("UPDATE frc_long_variables SET municipal_tax = 1, provincial_tax = 1, federal_tax = 1, r1_vote_override = false, r2_vote_override = false, r3_vote_override = false, phase = 2, power_price = 1 WHERE board = %s", [int(board)])
 
             conn.commit()
             with st.spinner('Reinitializing the main database'):

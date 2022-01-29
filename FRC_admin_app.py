@@ -347,7 +347,7 @@ def flood_centre():
         protected_roles = [user_dict_inv[b] for b in st.multiselect(label='Protected roles (Refer to board)', options=[user_dict[x] for x in lightly_affected] + [user_dict[x] for x in heavily_affected])]
         protected = [True if user in protected_roles else False for user in lightly_affected+heavily_affected]
         flood_damage = pd.DataFrame(zip(lightly_affected + heavily_affected, severity, insured, protected, DRP_eligiblity),
-                                    columns=['Roles', 'Severity', 'Insured', 'Protected by\n measures','Eligible for DRP \n (3 units)'])
+                                    columns=['Roles', 'Severity', 'Insured', 'Protected by measures','Eligible for DRP (3 units)'])
         flood_damage.set_index('Roles', inplace=True)
 
         for user in flood_damage.index:

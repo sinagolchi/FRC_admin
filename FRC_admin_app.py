@@ -345,6 +345,7 @@ def flood_centre():
         insurance_rebate = []
 
         protected_roles = [user_dict_inv[b] for b in st.multiselect(label='Protected roles (Refer to board)', options=[user_dict[x] for x in lightly_affected] + [user_dict[x] for x in heavily_affected])]
+        print(protected_roles)
         protected = [True if user in protected_roles else False for user in lightly_affected+heavily_affected]
         flood_damage = pd.DataFrame(zip(lightly_affected + heavily_affected, severity, insured, protected, DRP_eligiblity),
                                     columns=['Roles', 'Severity', 'Insured', 'Protected by measures','Eligible for DRP (3 units)'])
@@ -372,11 +373,11 @@ def flood_centre():
 
         flood_damage['Cost of damage'] = damage_amount
         flood_damage['Insurance rebate'] = insurance_rebate
-        flood_damage.rename(index=user_dict, inplace=True)
-        flood_damage_styled = flood_damage.style.applymap(styler)
+        flood_d_rename = flood_damage.rename(index=user_dict, inplace=False)
+        flood_d_rename_styled = flood_d_rename.style.applymap(styler)
 
 
-        st.dataframe(flood_damage_styled)
+        st.dataframe(flood_d_rename_styled)
 
         def submit_flood_details():
 

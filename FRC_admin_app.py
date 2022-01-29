@@ -5,8 +5,16 @@ import pytz
 import seaborn as sns
 import pandas as pd
 from random import randrange
+from pathlib import Path
 
 st.set_page_config(layout='wide') #set streamlit page to wide mode
+
+
+def refresh():
+    st.experimental_rerun()
+
+def read_markdown_file(markdown_file):
+    return Path(markdown_file).read_text()
 
 user_dict = {
     'M':'Mayor',
@@ -32,7 +40,7 @@ user_dict = {
 }
 user_dict_inv= {v:k for k,v in user_dict.items()}
 
-phase_dict = {0: 'Adjusting tax rate (for government only)', 1: 'Taxes', 2: 'Bidding on features', 3: 'Transactions', 4: 'Flood and damage analysis', 5: 'Vote'}
+phase_dict = {2: 'Phase 1A: FRM Measure bidding',3: 'Phase 1B: Transactions',4: 'Phase 2: Flood and damage analysis',0: '(Pre Phase 3) Adjusting tax rate (for government only) ', 1: 'Phase 3: Updating Budget', 5: 'Phase 4: Vote'}
 phase_dict_inv = {v:k for k, v in phase_dict.items()}
 
 def init_connection():
@@ -42,16 +50,60 @@ conn = init_connection()
 
 st.header('FRC Admin Tool')
 st.caption('Developed by Sina Golchi with collaboration with FRC Team under creative commons license')
-
-with st.sidebar:
-    board = st.selectbox(label='FRC Board number', options=[1, 2, 3, 4, 5])
-
 def get_sql(table):
     return pd.read_sql("SELECT * from " + table+";",conn)
+df_authen = get_sql('facilitators')
+df_authen.set_index('user',inplace=True)
+def authenticate(user,password):
+    if user in df_authen.index:
+        st.session_state['user'] = 'ok'
+        if password == df_authen.loc[user,'pass']:
+            st.session_state['pass'] = 'ok'
+        else:
+            st.error('Your password is incorrect')
+            st.session_state['pass'] = 'wrong'
+            st.stop()
+    else:
+        st.session_state['user'] = 'wrong'
+        st.error('Your username is incorrect')
+        st.stop()
 
-st.header('Main Game properties')
 
-df = get_sql('budget_lb1')
+with st.sidebar:
+    with st.form(' Facilitator sign in'):
+        username = st.text_input(label='username',placeholder='username')
+        password = st.text_input(label='password',placeholder='password',type='password')
+        submit_sign_in = st.form_submit_button(label='Sign in')
+        if submit_sign_in:
+            authenticate(username,password)
+
+    @st.cache(suppress_st_warning=True)
+    def check_user():
+        if 'user' not in st.session_state and 'pass' not in st.session_state:
+            st.warning('You are not signed in')
+            st.stop()
+        elif st.session_state['user'] == 'ok' and st.session_state['pass'] == 'ok':
+            pass
+        else:
+            st.error('Your user name or password is incorrect, please try again')
+            st.stop()
+
+    check_user()
+
+    if df_authen.loc[username,'level'] == 3:
+        board = st.selectbox(label='FRC Board number', options=[1, 2, 3, 4, 5, 6, 7])
+    else:
+        board = int(df_authen.loc[username,'board'])
+    st.success('Welcome ' + df_authen.loc[username, 'name'])
+    st.success('You are facilitating board ' + str(board))
+    confirm_rerun = st.button(label='Refresh Data')
+    if confirm_rerun:
+        refresh()
+
+
+
+
+df = get_sql('budget_lb' + str(board))
 df.set_index('role',inplace=True)
 
 df_m = get_sql('measures_lb1')
@@ -60,59 +112,99 @@ df_m.set_index('measure_id', inplace=True)
 df_v = get_sql('frc_long_variables')
 df_v.set_index('board',inplace=True)
 
+if df_authen.loc[username,'level'] > 1:
+    st.header('Main Game properties')
+    st.header('Game phase')
+    sub_col1, sub_col2, sub_col3 = st.columns(3)
+    with sub_col1:
+        st.text(phase_dict[int(df_v.loc[board, 'phase'])])
+    with sub_col2:
+        set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='Set phase to:')]
+    with sub_col3:
+        phase_change = st.button(label='Submit changes to phase',help='Change the phase only when needed')
 
-st.header('Game phase')
-sub_col1, sub_col2, sub_col3 = st.columns(3)
-with sub_col1:
-    st.text(phase_dict[int(df_v.loc[board, 'phase'])])
-with sub_col2:
-    set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='Set phase to:')]
-with sub_col3:
-    phase_change = st.button(label='Submit changes to phase',help='Change the phase only when needed')
+    def change_phase(set_phase):
+        curA = conn.cursor()
+        curA.execute("UPDATE frc_long_variables SET phase=%s WHERE board=%s",(set_phase,board))
+        conn.commit()
+        st.success('Game phase changed successfully')
+        time.sleep(2)
+        st.experimental_rerun()
 
-def change_phase(set_phase):
-    curA = conn.cursor()
-    curA.execute("UPDATE frc_long_variables SET phase=%s WHERE board=%s",(set_phase,board))
-    conn.commit()
-    st.success('Game phase changed successfully')
-    time.sleep(2)
-    st.experimental_rerun()
+    st.header('Game round')
+    sub_col1, sub_col2, sub_col3 = st.columns(3)
+    with sub_col1:
+        st.metric(label='Current game round', value=int(df_v.loc[board,'round']))
+        g_round = df_v.loc[board, 'round']
+    with sub_col2:
+        set_round = st.number_input(label='Set game round',min_value=1,value=1,max_value=3)
+    with sub_col3:
+        round_change = st.button(label='Submit changes',help='Change the round only when needed')
 
-st.header('Game round')
-sub_col1, sub_col2, sub_col3 = st.columns(3)
-with sub_col1:
-    st.metric(label='Current game round', value=int(df_v.loc[board,'round']))
-with sub_col2:
-    set_round = st.number_input(label='Set game round',min_value=1,value=1,max_value=3)
-with sub_col3:
-    round_change = st.button(label='Submit changes',help='Change the round only when needed')
+    def change_round(set_round):
+        curA = conn.cursor()
+        curA.execute("UPDATE frc_long_variables SET round=%s WHERE board=%s",((set_round,board)))
+        conn.commit()
+        st.success('Game round changed successfully')
+        time.sleep(2)
+        st.experimental_rerun()
 
-def change_round(set_round):
-    curA = conn.cursor()
-    curA.execute("UPDATE frc_long_variables SET round=%s WHERE board=%s",((set_round,board)))
-    conn.commit()
-    st.success('Game round changed successfully')
-    time.sleep(2)
-    st.experimental_rerun()
+    if phase_change:
+        change_phase(set_phase)
 
-if phase_change:
-    change_phase(set_phase)
+    if round_change:
+        change_round(set_round)
 
-if round_change:
-    change_round(set_round)
+else:
+    st.caption('Game round')
+    st.info('Your board is on round ' + str(df_v.loc[board,'round']))
+    g_round = df_v.loc[board, 'round']
+    st.caption('Game Phase')
+    st.info('The current game phase is ' + phase_dict[int(df_v.loc[board, 'phase'])])
+
+def bidding_section():
+    st.markdown('''___''')
+    with st.expander('FRM measures bidding help'):
+        st.markdown(read_markdown_file('checklists/FRM measures checklist.md'))
+    st.subheader('Measures suggested')
+
+    confirm_rerun = st.button(label='Refresh Data', key='bidding section')
+    if confirm_rerun:
+        refresh()
+    for measure in df_m.index.values:
+        if measure in df['r' + str(g_round) + '_measure'].to_list():
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.metric(label=measure,
+                          value=str(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
+                              'r' + str(g_round) + '_bid'].to_list()])) + r"/" + str(int(df_m.loc[measure, 'cost'])))
+            with col2:
+                biders = list(df[df['r' + str(g_round) + '_measure'] == measure].index)
+                amounts = df[df['r' + str(g_round) + '_measure'] == measure]['r' + str(g_round) + '_bid'].to_list()
+                st.caption('Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(biders, amounts)]))
+                try:
+                    st.progress(int(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
+                        'r' + str(g_round) + '_bid'].to_list()]) / df_m.loc[measure, 'cost'] * 100))
+                except:
+                    st.warning('The bid on this measure have exceeded the cost')
 
 
 def transaction_management():
     st.markdown("""___""")
+    with st.expander('Transactions help'):
+        st.markdown(read_markdown_file('checklists/transaction.md'))
     st.header('Transaction management')
+    confirm_rerun = st.button(label='Refresh Data', key='transaction section')
+    if confirm_rerun:
+        refresh()
 
     def transaction_revert(id):
-        revert_query_sender = ("UPDATE budget_lb1 SET cb=cb+%s WHERE role=%s;")
-        revert_query_receiver = ("UPDATE budget_lb1 SET cb=cb-%s WHERE role=%s;")
+        revert_query_sender = ("UPDATE budget_lb%s SET cb=cb+%s WHERE role=%s;")
+        revert_query_receiver = ("UPDATE budget_lb%s SET cb=cb-%s WHERE role=%s;")
         curA = conn.cursor()
-        curA.execute(revert_query_sender, (int(df_payement.loc[id,'Transaction total']),df_payement.loc[id,'Sender']))
-        curA.execute(revert_query_receiver, (int(df_payement.loc[id, 'Transaction total']), df_payement.loc[id, 'Receiving party']))
-        curA.execute("UPDATE payment SET reverted=True WHERE id=%s;",[id])
+        curA.execute(revert_query_sender, (int(board),int(df_payement.loc[id,'Transaction total']),df_payement.loc[id,'Sender']))
+        curA.execute(revert_query_receiver, (int(board),int(df_payement.loc[id, 'Transaction total']), df_payement.loc[id, 'Receiving party']))
+        curA.execute("UPDATE payment%s SET reverted=True WHERE id=%s;",(board,id))
         conn.commit()
         with st.spinner('Reverting transaction'):
             time.sleep(2)
@@ -121,7 +213,7 @@ def transaction_management():
         st.experimental_rerun()
 
 
-    df_payement = get_sql('payment')
+    df_payement = get_sql('payment' + str(board))
     est = pytz.timezone('EST')
     df_payement = df_payement.rename(
         columns={'datetime': 'Timestamp', 'from_user': 'Sender', 'amount': 'Transaction total',
@@ -178,7 +270,12 @@ def flood_centre():
         st.experimental_rerun()
 
     st.markdown('''___''')
+    with st.expander('Flood Event help'):
+        st.markdown(read_markdown_file('checklists/Flood.md'))
     st.header('Flood event')
+    confirm_rerun = st.button(label='Refresh Data', key='flood section')
+    if confirm_rerun:
+        refresh()
     flood_dict = {1: 'Ice jam winter flooding' , 2: 'Freshet flood', 3: 'Storm surge winter flooding',4: 'Convective summer storm' , 5: 'Minor localized flooding', 6: 'Future sea level rise' , 7: 'No flooding'}
     if df_v.loc[board,'floods'][int(df_v.loc[board,'round'])-1] is None:
         gen_type = st.radio(label='Flood generation method',options=['Random','Manual'],index=0)
@@ -250,19 +347,19 @@ def flood_centre():
 
         for user in flood_damage.index:
             if flood_damage.loc[user,'Severity'] == 'light':
-                init_dmg = df.loc[user,'ib']/4
+                init_dmg = round(df.loc[user,'ib']/4)
                 if flood_damage.loc[user,'Insured']:
-                    i_r = init_dmg*(3/4)
-                    insurance_rebate.append(init_dmg*(3/4))
+                    i_r = round(init_dmg*(3/4))
+                    insurance_rebate.append(round(init_dmg*(3/4)))
                 else:
                     insurance_rebate.append(0)
                     i_r = 0
                 damage_amount.append(init_dmg)
             else:
-                init_dmg = df.loc[user,'ib'] / 2
+                init_dmg = round(df.loc[user,'ib'] / 2)
                 if flood_damage.loc[user, 'Insured']:
-                    i_r = init_dmg*(3/4)
-                    insurance_rebate.append(init_dmg*(3/4))
+                    i_r = round(init_dmg*(3/4))
+                    insurance_rebate.append(round(init_dmg*(3/4)))
                 else:
                     insurance_rebate.append(0)
                     i_r = 0
@@ -277,10 +374,19 @@ def flood_centre():
         def submit_flood_details():
 
             for user in flood_damage.index:
-                st.write(user)
-                time.sleep(2)
                 curA = conn.cursor()
-                curA.execute("UPDATE budget_lb1 SET r%s_flood='{%s,%s,%s}' WHERE role=%s;",(int(df_v.loc[board,'round']),True,bool(flood_damage.loc[user,'Protected by measures']),float(flood_damage.loc[user,'Cost of damage']),user))
+                curA.execute("UPDATE budget_lb%s SET r%s_flood=ARRAY[%s,%s,%s] WHERE role=%s;",(int(board),int(df_v.loc[board,'round']),int(True),int(bool(flood_damage.loc[user,'Protected by measures'])),int(flood_damage.loc[user,'Cost of damage']),user))
+                conn.commit()
+
+            df = get_sql('budget_lb' + str(board))
+            df.set_index('role', inplace=True)
+            for user in flood_damage.index:
+
+                curA = conn.cursor()
+                curA.execute("UPDATE budget_lb%s SET ib=ib-%s, delta = -%s WHERE role=%s;", (
+                int(board),
+                int(df.loc[user, 'r'+str(g_round)+'_flood'][2]),int(df.loc[user, 'r'+str(g_round)+'_flood'][2]), user))
+
                 conn.commit()
             with st.spinner('Submitting flood details to players'):
                 time.sleep(2)
@@ -294,12 +400,12 @@ def flood_centre():
             for user in flood_damage.index:
                 if flood_damage.loc[user,'Insured']:
 
-                    curA.execute("UPDATE budget_lb1 SET cb=cb+%s WHERE role=%s",(int(flood_damage.loc[user,'Insurance rebate']),user))
-                    curA.execute("UPDATE budget_lb1 SET delta=%s WHERE role=%s",
-                                 (int(flood_damage.loc[user, 'Insurance rebate']), user))
-            curA.execute("UPDATE budget_lb1 SET cb=cb-%s WHERE role=%s",(int(flood_damage['Insurance rebate'].sum()),'I'))
-            curA.execute("UPDATE budget_lb1 SET delta=-%s WHERE role=%s",
-                         (int(flood_damage['Insurance rebate'].sum()), 'I'))
+                    curA.execute("UPDATE budget_lb%s SET cb=cb+%s WHERE role=%s",(int(board),int(flood_damage.loc[user,'Insurance rebate']),user))
+                    curA.execute("UPDATE budget_lb%s SET delta=%s WHERE role=%s",
+                                 (int(board),int(flood_damage.loc[user, 'Insurance rebate']), user))
+            curA.execute("UPDATE budget_lb%s SET cb=cb-%s WHERE role=%s",(int(board),int(flood_damage['Insurance rebate'].sum()),'I'))
+            curA.execute("UPDATE budget_lb%s SET delta=-%s WHERE role=%s",
+                         (int(board),int(flood_damage['Insurance rebate'].sum()), 'I'))
             conn.commit()
             with st.spinner('Processing insurance claim'):
                 time.sleep(2)
@@ -326,7 +432,7 @@ def dev_tools():
     with st.expander('Dev tools'):
         def clear_transaction_log():
             curA = conn.cursor()
-            curA.execute("DELETE FROM payment")
+            curA.execute("DELETE FROM payment%s",[int(board)])
             conn.commit()
             with st.spinner('clearing transaction log'):
                 time.sleep(2)
@@ -342,29 +448,29 @@ def dev_tools():
 
         def reinitial_main_raster():
             curA = conn.cursor()
-            curA.execute("UPDATE budget_lb%s SET cb=ib, delta=0, r1_tax=false, r2_tax=false, r3_tax=false, r1_vote=null, r2_vote=null, r3_vote=null, r1_insurance = false, r2_insurance = false, r3_insurance = false, r1_m_payment = false, r2_m_payment= false, r3_m_payment = false;",[board])
+            curA.execute("UPDATE budget_lb%s SET cb=ib, delta=0, r1_tax=false, r2_tax=false, r3_tax=false, r1_vote=null, r2_vote=null, r3_vote=null, r1_insurance = false, r2_insurance = false, r3_insurance = false, r1_m_payment = false, r2_m_payment= false, r3_m_payment = false, r1_measure = NULL, r2_measure = NULL, r3_measure = NULL, r1_bid = NULL, r2_bid = NULL, r3_bid = NULL;",[board])
             for user in ['DP','EM','FP','M','PH','TA','WW']:
-                curA.execute("UPDATE budget_lb%s SET r1_tax=NULL, r2_tax=NULL, r3_tax=NULL WHERE role=%s;",(board,user))
+                curA.execute("UPDATE budget_lb%s SET r1_tax=NULL, r2_tax=NULL, r3_tax=NULL WHERE role=%s;",(int(board),user))
 
-            curA.execute("UPDATE budget_lb%s SET r1_m_payment=NULL, r2_m_payment= NULL, r3_m_payment = NULL WHERE role='J';",(board,))
+            curA.execute("UPDATE budget_lb%s SET r1_m_payment=NULL, r2_m_payment= NULL, r3_m_payment = NULL WHERE role='J';",(int(board),))
 
             conn.commit()
-            with st.spinner('Reinitializing the main raster'):
+            with st.spinner('Reinitializing the main database'):
                 time.sleep(2)
-            st.success('Raster reinitialized')
+            st.success('Database reinitialized')
             time.sleep(2)
             st.experimental_rerun()
 
         with col2:
-            confirm_reinit_raster = st.button(label='Reinitialize main raster')
+            confirm_reinit_raster = st.button(label='Reinitialize main database')
 
         if confirm_reinit_raster:
             reinitial_main_raster()
 
         def reset_flood_event():
             cursor = conn.cursor()
-            cursor.execute("UPDATE frc_long_variables SET floods='{NULL,NULL,NULL}' WHERE board=%s;",[board])
-            cursor.execute("UPDATE budget_lb1 SET r1_flood ='{NULL,NULL,NULL}',r2_flood ='{NULL,NULL,NULL}',r3_flood ='{NULL,NULL,NULL}'")
+            cursor.execute("UPDATE frc_long_variables SET floods=ARRAY[null,null,null] WHERE board=%s;",[board])
+            cursor.execute("UPDATE budget_lb%s SET r1_flood =null,r2_flood =null,r3_flood =null",[int(board)])
             conn.commit()
             with st.spinner('Resetting flood events'):
                 time.sleep(2)
@@ -392,6 +498,9 @@ def dev_tools():
 def tax_payment_status():
     st.markdown('''___''')
     st.header('Tax and mandatory payments')
+    confirm_rerun = st.button(label='Refresh Data', key='Tax section')
+    if confirm_rerun:
+        refresh()
     col1, col2 = st.columns(2)
     def styler(val):
         color = 'red' if val == False else ('green' if val == True else 'gray')
@@ -415,11 +524,34 @@ def voting_status():
     st.header('Voting management')
     st.dataframe(df[['r1_vote','r2_vote','r3_vote']])
     def end_current_session():
-        print('end')
+        curA = conn.cursor()
+        curA.execute("UPDATE frc_long_variables SET r%s_vote_override=%s WHERE board=%s",(int(g_round),True,int(board)))
+        conn.commit()
+        with st.spinner('Revealing results of the voting session'):
+            time.sleep(1)
+        st.success('Voting results are now available')
+        time.sleep(2)
+
     end_vote_session = st.button(label='End current vote session and show results')
+    if end_vote_session:
+        end_current_session()
+
+#main page start
 
 
-admin_phase_dict = {0:None,1:tax_payment_status,2:None,3:transaction_management,4:flood_centre, 5:voting_status}
+with st.expander('Game progression help'):
+    st.markdown(read_markdown_file("checklists/Intro.md"))
+    st.image('checklists/flow chart.png')
+    st.markdown('The round and phases will be set automatically by a game admin, and you can see the current round and phase in blue boxes (see image below):')
+    st.image('checklists/current phase.JPG')
+    st.markdown('but you can see the options ahead of time by selecting via the phase selector in the main page (see image below):')
+    st.image('checklists/phase settings.JPG')
+
+admin_phase_dict = {0:None,1:tax_payment_status,2:bidding_section,3:transaction_management,4:flood_centre, 5:voting_status}
+if df_authen.loc[username,'level'] == 1:
+    st.subheader('Phase settings')
+    st.caption('Does not change the phase, but setting are adjustable ahead of time')
+    set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='See settings for:')]
 
 if admin_phase_dict[set_phase] is not None:
     admin_phase_dict[set_phase]()

@@ -459,10 +459,10 @@ def dev_tools():
         def reinitial_main_raster():
             curA = conn.cursor()
             curA.execute("UPDATE budget_lb%s SET cb=ib, delta=0, r1_tax=false, r2_tax=false, r3_tax=false, r1_vote=null, r2_vote=null, r3_vote=null, r1_insurance = false, r2_insurance = false, r3_insurance = false, r1_m_payment = false, r2_m_payment= false, r3_m_payment = false, r1_measure = NULL, r2_measure = NULL, r3_measure = NULL, r1_bid = NULL, r2_bid = NULL, r3_bid = NULL;",[board])
-            for user in ['DP','EM','FP','M','PH','TA','WW']:
+            for user in ['DP','EM','FP','M','PH','TA','WW','PP']:
                 curA.execute("UPDATE budget_lb%s SET r1_tax=NULL, r2_tax=NULL, r3_tax=NULL WHERE role=%s;",(int(board),user))
 
-            curA.execute("UPDATE budget_lb%s SET r1_m_payment=NULL, r2_m_payment= NULL, r3_m_payment = NULL WHERE role='J';",(int(board),))
+            curA.execute("UPDATE budget_lb%s SET r1_m_payment=NULL, r2_m_payment= NULL, r3_m_payment = NULL WHERE role='J' OR role= 'I';",(int(board),))
             curA.execute("UPDATE frc_long_variables SET municipal_tax = 1, provincial_tax = 1, federal_tax = 1, r1_vote_override = false, r2_vote_override = false, r3_vote_override = false, phase = 2, power_price = 1 WHERE board = %s", [int(board)])
 
             conn.commit()

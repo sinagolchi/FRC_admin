@@ -593,9 +593,16 @@ with st.expander('Game progression help'):
 
 admin_phase_dict = {0:None,1:tax_payment_status,2:bidding_section,3:transaction_management,4:flood_centre, 5:voting_status}
 if df_authen.loc[username,'level'] == 1:
-    st.subheader('Phase settings')
-    st.caption('Does not change the phase, but setting are adjustable ahead of time')
-    set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='See settings for:')]
+    with st.sidebar:
+        st.subheader('Phase progression setting')
+        phase_progress_type = st.radio(label='Method of showing the phase settings', options=['Manual select','Follow the current phase'],key=1)
+
+    if phase_progress_type == 'Manual select':
+        st.subheader('Phase settings')
+        st.caption('Does not change the phase, but setting are adjustable ahead of time')
+        set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='See settings for:')]
+    else:
+        set_phase = int(df_v.loc[board, 'phase'])
 
 if admin_phase_dict[set_phase] is not None:
     admin_phase_dict[set_phase]()

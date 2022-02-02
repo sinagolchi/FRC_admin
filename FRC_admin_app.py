@@ -128,10 +128,19 @@ if df_authen.loc[username,'level'] > 1:
         set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='Set phase to:')]
     with sub_col3:
         phase_change = st.button(label='Submit changes to phase',help='Change the phase only when needed')
+        phase_change_all_boards = st.button(label='Submit changes to phase (All boards)',help='Change the phase only when needed')
 
     def change_phase(set_phase):
         curA = conn.cursor()
         curA.execute("UPDATE frc_long_variables SET phase=%s WHERE board=%s",(set_phase,board))
+        conn.commit()
+        st.success('Game phase changed successfully')
+        time.sleep(2)
+        st.experimental_rerun()
+
+    def change_phase_all(set_phase):
+        curA = conn.cursor()
+        curA.execute("UPDATE frc_long_variables SET phase=%s",(set_phase))
         conn.commit()
         st.success('Game phase changed successfully')
         time.sleep(2)
@@ -157,6 +166,9 @@ if df_authen.loc[username,'level'] > 1:
 
     if phase_change:
         change_phase(set_phase)
+
+    if phase_change_all_boards:
+        change_phase_all(set_phase)
 
     if round_change:
         change_round(set_round)
@@ -242,6 +254,29 @@ def transaction_management():
 
     if confirm_revert:
         transaction_revert(int(trans_id))
+
+    st.header('Summary')
+    with st.expander("Bidding summary"):
+        df_m_log = get_sql('measure_log' + str(board))
+        est = pytz.timezone('EST')
+        df_m_log = df_m_log.rename(
+            columns={'datetime': 'Timestamp', 'bid_type': 'Type of bid', 'person_biding': 'Role of bidder',
+                     'amount': 'Amount of bid', 'measure': 'Measure'})
+        if not df_m_log.empty:
+            df_m_log['Timestamp'] = df_m_log['Timestamp'].dt.tz_convert('EST').dt.strftime('%B %d, %Y, %r')
+            st.dataframe(df_m_log)
+
+    with st.expander("Transaction summary"):
+        df_p_log = get_sql('payment' + str(board))
+        est = pytz.timezone('EST')
+        df_p_log = df_p_log.rename(
+            columns={'datetime': 'Timestamp', 'from_user': 'Sender', 'amount': 'Transaction total',
+                     'to_user': 'Receiving party'})
+        df_p_log['id'] = [int(p) for p in df_p_log['id']]
+        df_p_log.set_index('id', inplace=True)
+        if not df_p_log.empty:
+            df_p_log['Timestamp'] = df_p_log['Timestamp'].dt.tz_convert('EST').dt.strftime('%B %d, %Y, %r')
+            st.dataframe(df_p_log)
 
 #flood conttrol centre
 
@@ -613,7 +648,7 @@ admin_phase_dict = {0:None,1:tax_payment_status,2:bidding_section,3:transaction_
 if df_authen.loc[username,'level'] == 1:
     with st.sidebar:
         st.subheader('Phase progression setting')
-        phase_progress_type = st.radio(label='Method of showing the phase settings', options=['Manual select','Follow the current phase'],key=1)
+        phase_progress_type = st.radio(label='Method of showing the phase settings', options=['Manual select','Follow the current phase'],index=1)
 
     if phase_progress_type == 'Manual select':
         st.subheader('Phase settings')
@@ -638,4 +673,5 @@ with st.expander('Miro board', expanded=True):
     components.iframe(miro_dict[int(board)][0],height=740)
     st.write("Open board in a new tab [link]("+miro_dict[int(board)][1]+')')
 
-dev_tools()
+if df_authen.loc[username,'level'] == 3:
+    dev_tools()

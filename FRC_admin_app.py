@@ -140,7 +140,7 @@ if df_authen.loc[username,'level'] > 1:
 
     def change_phase_all(set_phase):
         curA = conn.cursor()
-        curA.execute("UPDATE frc_long_variables SET phase=%s",(set_phase))
+        curA.execute("UPDATE frc_long_variables SET phase=%s;",[set_phase])
         conn.commit()
         st.success('Game phase changed successfully')
         time.sleep(2)

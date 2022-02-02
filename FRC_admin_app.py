@@ -265,6 +265,8 @@ def transaction_management():
         if not df_m_log.empty:
             df_m_log['Timestamp'] = df_m_log['Timestamp'].dt.tz_convert('EST').dt.strftime('%B %d, %Y, %r')
             st.dataframe(df_m_log)
+        else:
+            st.info('No bid to show')
 
     with st.expander("Transaction summary"):
         df_p_log = get_sql('payment' + str(board))
@@ -277,6 +279,8 @@ def transaction_management():
         if not df_p_log.empty:
             df_p_log['Timestamp'] = df_p_log['Timestamp'].dt.tz_convert('EST').dt.strftime('%B %d, %Y, %r')
             st.dataframe(df_p_log)
+        else:
+            st.info('No transaction to show')
 
 #flood conttrol centre
 

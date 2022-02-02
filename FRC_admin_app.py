@@ -7,6 +7,7 @@ import pandas as pd
 from random import randrange
 from pathlib import Path
 import streamlit.components.v1 as components
+import math
 
 st.set_page_config(layout='wide') #set streamlit page to wide mode
 
@@ -353,19 +354,19 @@ def flood_centre():
 
         for user in flood_damage.index:
             if flood_damage.loc[user,'Severity'] == 'light':
-                init_dmg = round(df.loc[user,'ib']/4)
+                init_dmg = math.ceil(df.loc[user,'ib']/4)
                 if flood_damage.loc[user,'Insured']:
-                    i_r = round(init_dmg*(3/4))
-                    insurance_rebate.append(round(init_dmg*(3/4)))
+                    i_r = math.ceil(init_dmg*(3/4))
+                    insurance_rebate.append(math.ceil(init_dmg*(3/4)))
                 else:
                     insurance_rebate.append(0)
                     i_r = 0
                 damage_amount.append(init_dmg)
             else:
-                init_dmg = round(df.loc[user,'ib'] / 2)
+                init_dmg = math.ceil(df.loc[user,'ib'] / 2)
                 if flood_damage.loc[user, 'Insured']:
-                    i_r = round(init_dmg*(3/4))
-                    insurance_rebate.append(round(init_dmg*(3/4)))
+                    i_r = math.ceil(init_dmg*(3/4))
+                    insurance_rebate.append(math.ceil(init_dmg*(3/4)))
                 else:
                     insurance_rebate.append(0)
                     i_r = 0

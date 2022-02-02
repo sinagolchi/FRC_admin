@@ -417,10 +417,27 @@ def flood_centre():
             curA.execute("UPDATE budget_lb%s SET cb=cb-%s WHERE role=%s",(int(board),int(flood_damage['Insurance rebate'].sum()),'I'))
             curA.execute("UPDATE budget_lb%s SET delta=-%s WHERE role=%s",
                          (int(board),int(flood_damage['Insurance rebate'].sum()), 'I'))
+
+            total_DRP = 0
+            for user in flood_damage.index:
+                if flood_damage.loc[user,'Eligible for DRP (3 units)'] and not flood_damage.loc[user,'Insured']:
+                    if int(flood_damage.loc[user,'Cost of damage']) < 3:
+                        DRP_payment = int(flood_damage.loc[user,'Cost of damage'])
+                    else:
+                        DRP_payment = 3
+                    curA.execute("UPDATE budget_lb%s SET cb=cb+%s WHERE role=%s",
+                                 (int(board), DRP_payment, user))
+                    curA.execute("UPDATE budget_lb%s SET delta=%s WHERE role=%s",
+                                 (int(board), DRP_payment, user))
+                    total_DRP += DRP_payment
+            curA.execute("UPDATE budget_lb%s SET cb=cb-%s WHERE role=%s",
+                         (int(board), int(total_DRP), 'PP'))
+            curA.execute("UPDATE budget_lb%s SET delta=-%s WHERE role=%s",
+                         (int(board), int(total_DRP), 'PP'))
             conn.commit()
-            with st.spinner('Processing insurance claim'):
+            with st.spinner('Processing insurance/DRP claim'):
                 time.sleep(2)
-            st.success('Insurance claim went through')
+            st.success('Insurance/DRP claims went through')
             time.sleep(2)
 
 
@@ -428,7 +445,7 @@ def flood_centre():
         with col1:
             flood_submit = st.button(label='Submit flood details')
         with col3:
-            insurance_submit = st.button(label='Submit insurance claim')
+            insurance_submit = st.button(label='Submit insurance/DRP claim')
 
         if flood_submit:
             submit_flood_details()

@@ -500,18 +500,35 @@ def dev_tools():
         def clear_transaction_log():
             curA = conn.cursor()
             curA.execute("DELETE FROM payment%s",[int(board)])
+            curA.execute('ALTER SEQUENCE payment%s_id_seq RESTART WITH 1;')
             conn.commit()
-            with st.spinner('clearing transaction log'):
-                time.sleep(2)
+            with st.spinner('Clearing transaction log'):
+                time.sleep(1)
             st.success('Transaction log cleared')
-            time.sleep(2)
+            time.sleep(1)
             st.experimental_rerun()
+
+        def clear_bidding_log():
+            curA = conn.cursor()
+            curA.execute("DELETE FROM measure_log%s", [int(board)])
+            conn.commit()
+            with st.spinner('Clearing bidding log'):
+                time.sleep(1)
+            st.success('Bidding log cleared')
+            time.sleep(1)
+            st.experimental_rerun()
+
         col1, col2, col3 = st.columns(3)
 
         with col1:
             confirm_clear_log = st.button(label='Clear transaction log')
+            confirm_clear_bid_log = st.button(label='Clear bidding log')
+
         if confirm_clear_log:
             clear_transaction_log()
+
+        if confirm_clear_bid_log:
+            clear_bidding_log()
 
         def reinitial_main_raster():
             curA = conn.cursor()

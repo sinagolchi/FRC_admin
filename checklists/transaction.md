@@ -5,7 +5,7 @@ The suggested measures from last phase will be also available to help with makin
 ### Checklist:
 
 1. Remind students to refresh data, so they can see the new phase settings
-1. Set a timer in Miro for 4 minutes
+1. Set a timer in Miro for 3 minutes
 2. Advise students to transfer budget units with care, in correct amount and to right party
 3. Make sure to refresh data often to see the latest transactions
 4. If a student made a transaction by mistake, ask about the details (sender, amount, receiver) then locate and proceed to revert the transaction by entering the transaction id and click on revert transaction

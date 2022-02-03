@@ -500,7 +500,7 @@ def dev_tools():
         def clear_transaction_log():
             curA = conn.cursor()
             curA.execute("DELETE FROM payment%s",[int(board)])
-            curA.execute('ALTER SEQUENCE payment%s_id_seq RESTART WITH 1;',[int(board)])
+            curA.execute('ALTER SEQUENCE payment%s_id_seq RESTART;',[int(board)])
             conn.commit()
             with st.spinner('Clearing transaction log'):
                 time.sleep(1)

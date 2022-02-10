@@ -96,7 +96,7 @@ with st.sidebar:
 
     check_user()
 
-    if df_authen.loc[username,'level'] == 3:
+    if df_authen.loc[username,'level'] == 3 or username == 'evalyna' or username == 'shaieree':
         board = st.selectbox(label='FRC Board number', options=[1, 2, 3, 4, 5, 6, 7])
     else:
         board = int(df_authen.loc[username,'board'])

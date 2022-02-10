@@ -180,6 +180,19 @@ else:
     st.caption('Game Phase')
     st.info('The current game phase is ' + phase_dict[int(df_v.loc[board, 'phase'])])
 
+
+def budget_section():
+    other_roles = [x for x in user_dict.keys()]
+    with st.expander('Participants budgets'):
+        metric_cols_1 = st.columns(7)
+        metric_cols_2 = st.columns(7)
+        metric_cols_3 = st.columns(7)
+        metric_cols = metric_cols_1 + metric_cols_2 + metric_cols_3
+
+        for col, role in zip(metric_cols, other_roles):
+            with col:
+                st.metric(label=user_dict[role], value='$' + str(df.loc[role, 'cb']), delta=int(df.loc[role, 'delta']))
+
 def bidding_section():
     st.markdown('''___''')
     with st.expander('FRM measures bidding help'):
@@ -676,6 +689,8 @@ if df_authen.loc[username,'level'] == 1:
         set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='See settings for:')]
     else:
         set_phase = int(df_v.loc[board, 'phase'])
+
+budget_section()
 
 if admin_phase_dict[set_phase] is not None:
     admin_phase_dict[set_phase]()

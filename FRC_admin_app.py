@@ -22,35 +22,49 @@ def styler(val):
     color = 'red' if val == False else ('green' if val == True else 'gray')
     return 'color: %s' % color
 
-user_dict = {
-    'M':'Mayor',
-    'LEF':'Large Engineering Firm',
-    'DP': 'District Planner',
-    'EM': 'Emergency Manager',
-    'ENGO': 'Environmental ENGO',
-    'F': 'Farmer',
-    'FP': 'Federal Government',
-    'FN': 'First Nations',
-    'I': 'Insurance Company',
-    'J': 'Journalist',
-    'LD': 'Land Developer',
-    'LBO': 'Local Business',
-    'PUC': 'Power Utility',
-    'CRA-HV': 'Community Residence - High Value',
-    'CRA-MHA': 'Community Residence - Mobile Home',
-    'CRA-MV': ' Community Residence - Mediume value',
-    'PH': 'Hydrologist',
-    'PP': 'Provincial Politician',
-    'TA': 'Transport Authority',
-    'WW': 'Waste and Water Treatment Director'
-}
+with st.sidebar:
+    game_type = st.radio(label='Game type', options=['simplified','Full'])
+
+if game_type == 'full':
+    def init_connection():
+        return psycopg2.connect(**st.secrets["postgres"])
+else:
+    def init_connection():
+        return psycopg2.connect(options='-c search_path=FRC_s',**st.secrets["postgres"])
+
+
+if game_type == 'full':
+    user_dict = {
+        'M':'Mayor',
+        'LEF':'Large Engineering Firm',
+        'DP': 'District Planner',
+        'EM': 'Emergency Manager',
+        'ENGO': 'Environmental ENGO',
+        'F': 'Farmer',
+        'FP': 'Federal Government',
+        'FN': 'First Nations',
+        'I': 'Insurance Company',
+        'J': 'Journalist',
+        'LD': 'Land Developer',
+        'LBO': 'Local Business',
+        'PUC': 'Power Utility',
+        'CRA-HV': 'Community Residence - High Value',
+        'CRA-MHA': 'Community Residence - Mobile Home',
+        'CRA-MV': ' Community Residence - Mediume value',
+        'PH': 'Hydrologist',
+        'PP': 'Provincial Politician',
+        'TA': 'Transport Authority',
+        'WW': 'Waste and Water Treatment Director'
+    }
+else:
+    user_dict = {'M': "Mayor", 'DP': 'Planner', 'EM': 'Emergency Manager', 'CSO': 'Community Service',
+                 'WR': 'Waterfront Resident', 'F': 'Farmer', 'LD': 'Land Developer', 'LEF': 'Large Engineering Firm'}
 user_dict_inv= {v:k for k,v in user_dict.items()}
 
 phase_dict = {2: 'Phase 1A: FRM Measure bidding',3: 'Phase 1B: Transactions',4: 'Phase 2: Flood and damage analysis',0: '(Pre Phase 3) Adjusting tax rate (for government only) ', 1: 'Phase 3: Updating Budget', 5: 'Phase 4: Vote'}
 phase_dict_inv = {v:k for k, v in phase_dict.items()}
 
-def init_connection():
-    return psycopg2.connect(**st.secrets["postgres"])
+
 
 conn = init_connection()
 
@@ -105,6 +119,7 @@ with st.sidebar:
     confirm_rerun = st.button(label='Refresh Data')
     if confirm_rerun:
         refresh()
+
 
 
 

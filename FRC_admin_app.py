@@ -65,7 +65,6 @@ phase_dict = {2: 'Phase 1A: FRM Measure bidding',3: 'Phase 1B: Transactions',4: 
 phase_dict_inv = {v:k for k, v in phase_dict.items()}
 
 
-
 conn = init_connection()
 
 st.header('FRC Admin Tool')
@@ -119,9 +118,6 @@ with st.sidebar:
     confirm_rerun = st.button(label='Refresh Data')
     if confirm_rerun:
         refresh()
-
-
-
 
 
 df = get_sql('budget_lb' + str(board))
@@ -208,6 +204,17 @@ def budget_section():
             with col:
                 st.metric(label=user_dict[role], value='$' + str(df.loc[role, 'cb']), delta=int(df.loc[role, 'delta']))
 
+def process_bid(measure,biders,amounts):
+    curA = conn.cursor()
+    curA.execute('INSERT INTO impl_measures%s VALUES (%s,%s,%s,%s);',(int(board),measure,biders,amounts,int(g_round)))
+    curA.execute('UPDATE budget_lb%s SET r%s_measure = NULL, r%s_bid = NULL WHERE role=ANY(%s);',(int(board),int(g_round),int(g_round),biders))
+    for role, amount in zip(biders,amounts):
+        curA.execute('UPDATE budget_lb%s SET cb=cb-%s WHERE role = %s;', (int(board),amount,role))
+        curA.execute('UPDATE budget_lb%s SET delta=-%s WHERE role = %s;', (int(board),amount,role))
+    conn.commit()
+    st.success('Bid processed')
+    time.sleep(2)
+
 def bidding_section():
     st.markdown('''___''')
     with st.expander('FRM measures bidding help'):
@@ -219,20 +226,63 @@ def bidding_section():
         refresh()
     for measure in df_m.index.values:
         if measure in df['r' + str(g_round) + '_measure'].to_list():
-            col1, col2 = st.columns([1, 3])
+            if sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
+                              'r' + str(g_round) + '_bid'].to_list()]) != int(df_m.loc[measure, 'cost']):
+
+                col1, col2 = st.columns([1, 3])
+                with col1:
+                    st.metric(label=measure,
+                              value=str(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
+                                  'r' + str(g_round) + '_bid'].to_list()])) + r"/" + str(int(df_m.loc[measure, 'cost'])))
+                with col2:
+                    biders = list(df[df['r' + str(g_round) + '_measure'] == measure].index)
+                    amounts = df[df['r' + str(g_round) + '_measure'] == measure]['r' + str(g_round) + '_bid'].to_list()
+                    st.caption('Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(biders, amounts)]))
+                    try:
+                        st.progress(int(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
+                            'r' + str(g_round) + '_bid'].to_list()]) / df_m.loc[measure, 'cost'] * 100))
+                    except:
+                        st.warning('The bid on this measure have exceeded the cost')
+
+            else:
+                #If bid has reached the level
+                col1, col2, col3= st.columns([1, 2, 1])
+                with col1:
+                    st.metric(label=measure,
+                              value=str(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
+                                  'r' + str(g_round) + '_bid'].to_list()])) + r"/" + str(
+                                  int(df_m.loc[measure, 'cost'])))
+                with col2:
+                    biders = list(df[df['r' + str(g_round) + '_measure'] == measure].index)
+                    amounts = df[df['r' + str(g_round) + '_measure'] == measure]['r' + str(g_round) + '_bid'].to_list()
+                    st.caption(
+                        'Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(biders, amounts)]))
+                    try:
+                        st.progress(int(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
+                            'r' + str(g_round) + '_bid'].to_list()]) / df_m.loc[measure, 'cost'] * 100))
+                    except:
+                        st.warning('The bid on this measure have exceeded the cost')
+
+                with col3:
+                    st.button(label='Process bid',key=measure,on_click=process_bid , args=(measure,biders,amounts))
+
+    df_impl_measures = get_sql('impl_measures'+str(board))
+    st.subheader('Implemented measures')
+    for m_row in df_impl_measures.iterrows():
+        m_row = m_row[1]
+        if m_row['round'] == g_round:
+            col1, col2,col3 = st.columns([1,3,1])
             with col1:
-                st.metric(label=measure,
-                          value=str(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
-                              'r' + str(g_round) + '_bid'].to_list()])) + r"/" + str(int(df_m.loc[measure, 'cost'])))
+                st.metric(label=m_row['measure'],
+                              value=str(sum(m_row['amounts'])) + r"/" + str(
+                                  int(df_m.loc[m_row['measure'], 'cost'])))
             with col2:
-                biders = list(df[df['r' + str(g_round) + '_measure'] == measure].index)
-                amounts = df[df['r' + str(g_round) + '_measure'] == measure]['r' + str(g_round) + '_bid'].to_list()
-                st.caption('Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(biders, amounts)]))
-                try:
-                    st.progress(int(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
-                        'r' + str(g_round) + '_bid'].to_list()]) / df_m.loc[measure, 'cost'] * 100))
-                except:
-                    st.warning('The bid on this measure have exceeded the cost')
+                st.caption(
+                    'Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(m_row['biders'], m_row['amounts'])]))
+
+                st.progress(int(sum(m_row['amounts']) / df_m.loc[m_row['measure'], 'cost'] * 100))
+            with col3:
+                st.success('Implemented')
 
 
 def transaction_management():
@@ -564,8 +614,8 @@ def dev_tools():
                 curA.execute("UPDATE budget_lb%s SET r1_tax=NULL, r2_tax=NULL, r3_tax=NULL WHERE role=%s;",(int(board),user))
 
             curA.execute("UPDATE budget_lb%s SET r1_m_payment=NULL, r2_m_payment= NULL, r3_m_payment = NULL WHERE role='J' OR role= 'I';",(int(board),))
-            curA.execute("UPDATE frc_long_variables SET municipal_tax = 1, provincial_tax = 1, federal_tax = 1, r1_vote_override = false, r2_vote_override = false, r3_vote_override = false, phase = 2, power_price = 1 WHERE board = %s", [int(board)])
-
+            curA.execute("UPDATE frc_long_variables SET municipal_tax = 1, provincial_tax = 1, federal_tax = 1, r1_vote_override = false, r2_vote_override = false, r3_vote_override = false, phase = 2, power_price = 1, r1_taxed=FALSE, r2_taxed=FALSE, r3_taxed=FALSE, WHERE board = %s", [int(board)])
+            curA.execute("DELETE FROM impl_measures%s", [int(board)])
             conn.commit()
             with st.spinner('Reinitializing the main database'):
                 time.sleep(2)
@@ -631,7 +681,22 @@ def tax_payment_status():
         df_payment_styled = df_payment.style.applymap(styler)
         st.dataframe(df_payment_styled)
 
+def tax_auto_short():
+    st.markdown('''___''')
+    st.subheader('Process tax and payment')
 
+    def process_all():
+        curA = conn.cursor()
+        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);',(int(board),2,['P','EM','CSO','F']))
+        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), 1, ['WR','LD']))
+        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), 3, ['M']))
+        curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s',(int(g_round),True,int(board)))
+        conn.commit()
+
+        with st.success('All payments processed'):
+            time.sleep(2)
+
+    st.button(label="Process tax and payment",disabled=df_v.loc[int(board),'r'+str(g_round)+'_taxed'],on_click=process_all)
 
 #Voting section
 
@@ -692,7 +757,7 @@ with st.expander('Game progression help'):
     st.markdown('but you can see the options ahead of time by selecting via the phase selector in the main page (see image below):')
     st.image('checklists/phase settings.JPG')
 
-admin_phase_dict = {0:None,1:tax_payment_status,2:bidding_section,3:transaction_management,4:flood_centre, 5:voting_status}
+admin_phase_dict = {0:None,1:tax_auto_short,2:bidding_section,3:transaction_management,4:flood_centre, 5:voting_status}
 if df_authen.loc[username,'level'] == 1:
     with st.sidebar:
         st.subheader('Phase progression setting')

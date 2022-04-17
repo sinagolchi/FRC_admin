@@ -57,7 +57,7 @@ if game_type == 'full':
         'WW': 'Waste and Water Treatment Director'
     }
 else:
-    user_dict = {'M': "Mayor", 'DP': 'Planner', 'EM': 'Emergency Manager', 'CSO': 'Community Service',
+    user_dict = {'M': "Mayor", 'P': 'Planner', 'EM': 'Emergency Manager', 'CSO': 'Community Service',
                  'WR': 'Waterfront Resident', 'F': 'Farmer', 'LD': 'Land Developer', 'LEF': 'Large Engineering Firm'}
 user_dict_inv= {v:k for k,v in user_dict.items()}
 
@@ -361,9 +361,12 @@ def transaction_management():
             st.info('No transaction to show')
 
 #flood conttrol centre
-
-damage_flood_dict = {'Ice jam winter flooding':{'light': ['ENGO', 'EM', 'F'], 'heavy':['CRA-MHA']}, 'Freshet flood':{'light':['EM','M','CRA-MV'],'heavy':['CRA-HV','CRA-MHA']},'Storm surge winter flooding':{'light':['M','WW','DP'],'heavy':['CRA-MHA','CRA-HV','LBO']},
+if game_type == 'full':
+    damage_flood_dict = {'Ice jam winter flooding':{'light': ['ENGO', 'EM', 'F'], 'heavy':['CRA-MHA']}, 'Freshet flood':{'light':['EM','M','CRA-MV'],'heavy':['CRA-HV','CRA-MHA']},'Storm surge winter flooding':{'light':['M','WW','DP'],'heavy':['CRA-MHA','CRA-HV','LBO']},
                      'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['DP'],'heavy':['CRA-MV']},'Future sea level rise':{'light':['CRA-MHA','M','CRA-HV',],'heavy':['WW','LBO','DP']}}
+else:
+    damage_flood_dict = {'Ice jam winter flooding':{'light': ['EM'], 'heavy':[]}, 'Freshet flood':{'light':['EM','M'],'heavy':['WR']},'Storm surge winter flooding':{'light':['P','M'],'heavy':['WR']},
+                     'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['CSO'],'heavy':[]},'Future sea level rise':{'light':['M'],'heavy':['P','WR']}}
 
 qulified_for_DRP = ['CRA-HV','CRA-MV','CRA-MHA','ENGO','F']
 def flood_centre():
@@ -734,13 +737,19 @@ def voting_status():
         for r in range(1, 4):
             for v in df.loc[:, 'r' + str(r) + '_vote']:
                 if v is not None:
-                    for i, o in zip(range(3), ['Mayor', 'Provincial politician', 'Federal politician']):
-                        vote.append(v[i])
-                        official.append(o)
-                        vote_g_round.append(r)
+                    if game_type == 'full':
+                        for i, o in zip(range(3), ['Mayor', 'Provincial politician', 'Federal politician']):
+                            vote.append(v[i])
+                            official.append(o)
+                            vote_g_round.append(r)
+                    else:
+                        for i, o in zip(range(1), ['Mayor']):
+                            vote.append(v[i])
+                            official.append(o)
+                            vote_g_round.append(r)
         df_vote_result = pd.DataFrame(zip(vote, official, vote_g_round), columns=['Votes', 'Official', 'Game round'])
         sns.set_theme(style='darkgrid', palette='colorblind')
-        fig = sns.catplot(data=df_vote_result, x='Votes', col='Official', kind='count', row='Game round')
+        fig = sns.catplot(data=df_vote_result, x='Votes', col='Official', kind='count', row='Game round',size=5,aspect=2)
         st.pyplot(fig)
     except:
         st.info('No result to show yet, keep refreshing the data')

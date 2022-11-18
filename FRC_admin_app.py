@@ -23,9 +23,9 @@ def styler(val):
     return 'color: %s' % color
 
 with st.sidebar:
-    game_type = st.radio(label='Game type', options=['simplified','Full'])
+    game_type = st.radio(label='Game type', options=['Simplified','Full'], index=1)
 
-if game_type == 'full':
+if game_type == 'Full':
     def init_connection():
         return psycopg2.connect(**st.secrets["postgres"])
 else:
@@ -33,7 +33,7 @@ else:
         return psycopg2.connect(options='-c search_path=FRC_s',**st.secrets["postgres"])
 
 
-if game_type == 'full':
+if game_type == 'Full':
     user_dict = {
         'M':'Mayor',
         'LEF':'Large Engineering Firm',
@@ -361,7 +361,7 @@ def transaction_management():
             st.info('No transaction to show')
 
 #flood conttrol centre
-if game_type == 'full':
+if game_type == 'Full':
     damage_flood_dict = {'Ice jam winter flooding':{'light': ['ENGO', 'EM', 'F'], 'heavy':['CRA-MHA']}, 'Freshet flood':{'light':['EM','M','CRA-MV'],'heavy':['CRA-HV','CRA-MHA']},'Storm surge winter flooding':{'light':['M','WW','DP'],'heavy':['CRA-MHA','CRA-HV','LBO']},
                      'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['DP'],'heavy':['CRA-MV']},'Future sea level rise':{'light':['CRA-MHA','M','CRA-HV',],'heavy':['WW','LBO','DP']}}
 else:
@@ -699,6 +699,46 @@ def tax_auto_short():
         with st.success('All payments processed'):
             time.sleep(2)
 
+
+    st.button(label="Process tax and payment",disabled=df_v.loc[int(board),'r'+str(g_round)+'_taxed'],on_click=process_all)
+
+
+def tax_auto_long():
+    st.markdown('''___''')
+    st.subheader('Process tax and payment')
+
+
+    def process_all():
+        # curA = conn.cursor()
+        # curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);',(int(board),2,['P','EM','CSO','F']))
+        # curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), 1, ['WR','LD']))
+        # curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), 3, ['M']))
+        # curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s',(int(g_round),True,int(board)))
+        # conn.commit()
+
+        role_tax = ['CRA-HV', 'CRA-MHA', 'CRA-MV', 'DP','EM','ENGO','F', 'FP','FN','I','J','LD','LEF','M','PUC','PH','PP','TA', 'WW']
+        role_uni_tax = [-1,-3,-2,-1,-1,-5,-4,-5,-2,-2,-2,-4,-6,-4,1,4,0,-1,-1,-1] #the total sum of money to be added or removed from the role during the tax section
+
+
+        curA = conn.cursor()
+        for role, tax in zip(role_tax,role_uni_tax):
+            curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);',(int(board), tax, [role]))
+            curA.execute('UPDATE budget_lb%s SET delta=%s WHERE role=ANY(%s);', (int(board), tax, [role]))
+            conn.commit()
+
+        curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s', (int(g_round), True, int(board)))
+        conn.commit()
+
+
+
+        with st.success('All payments processed'):
+            time.sleep(2)
+
+    if df_v.loc[int(board), 'r' + str(g_round) + '_taxed']:
+        st.success('Tax and mandatory payments are already processed for this round')
+    else:
+        st.info('Taxes are not processed yet!')
+
     st.button(label="Process tax and payment",disabled=df_v.loc[int(board),'r'+str(g_round)+'_taxed'],on_click=process_all)
 
 #Voting section
@@ -737,7 +777,7 @@ def voting_status():
         for r in range(1, 4):
             for v in df.loc[:, 'r' + str(r) + '_vote']:
                 if v is not None:
-                    if game_type == 'full':
+                    if game_type == 'Full':
                         for i, o in zip(range(3), ['Mayor', 'Provincial politician', 'Federal politician']):
                             vote.append(v[i])
                             official.append(o)
@@ -766,7 +806,7 @@ with st.expander('Game progression help'):
     st.markdown('but you can see the options ahead of time by selecting via the phase selector in the main page (see image below):')
     st.image('checklists/phase settings.JPG')
 
-admin_phase_dict = {0:None,1:tax_auto_short,2:bidding_section,3:transaction_management,4:flood_centre, 5:voting_status}
+admin_phase_dict = {0:None,1:tax_auto_long,2:bidding_section,3:transaction_management,4:flood_centre, 5:voting_status}
 if df_authen.loc[username,'level'] == 1:
     with st.sidebar:
         st.subheader('Phase progression setting')

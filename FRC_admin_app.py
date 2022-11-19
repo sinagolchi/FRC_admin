@@ -61,7 +61,8 @@ else:
                  'WR': 'Waterfront Resident', 'F': 'Farmer', 'LD': 'Land Developer', 'LEF': 'Large Engineering Firm'}
 user_dict_inv= {v:k for k,v in user_dict.items()}
 
-phase_dict = {2: 'Phase 1A: FRM Measure bidding',3: 'Phase 1B: Transactions',4: 'Phase 2: Flood and damage analysis',0: '(Pre Phase 3) Adjusting tax rate (for government only) ', 1: 'Phase 3: Updating Budget', 5: 'Phase 4: Vote'}
+#phase_dict = {2: 'Phase 1A: FRM Measure bidding',3: 'Phase 1B: Transactions',4: 'Phase 2: Flood and damage analysis',0: '(Pre Phase 3) Adjusting tax rate (for government only) ', 1: 'Phase 3: Updating Budget', 5: 'Phase 4: Vote'}
+phase_dict = {2: 'Phase 1: FRM Measure bidding',4: 'Phase 2: Flood and damage analysis', 1: 'Phase 3: Updating Budget', 5: 'Phase 4: Vote'}
 phase_dict_inv = {v:k for k, v in phase_dict.items()}
 
 
@@ -109,15 +110,23 @@ with st.sidebar:
 
     check_user()
 
-    if df_authen.loc[username,'level'] == 3 or username == 'evalyna' or username == 'shaieree':
-        board = st.selectbox(label='FRC Board number', options=[1, 2, 3, 4, 5, 6, 7])
+    if username != "":
+        try:
+            if df_authen.loc[username,'level'] == 3: # or username == 'evalyna' or username == 'shaieree':
+                board = st.selectbox(label='FRC Board number', options=[1, 2, 3, 4, 5, 6, 7])
+            else:
+                board = int(df_authen.loc[username,'board'])
+            st.success('Welcome ' + df_authen.loc[username, 'name'])
+            st.success('You are facilitating board ' + str(board))
+            confirm_rerun = st.button(label='Refresh Data')
+            if confirm_rerun:
+                refresh()
+        except:
+            st.error('your username is not registered')
+
     else:
-        board = int(df_authen.loc[username,'board'])
-    st.success('Welcome ' + df_authen.loc[username, 'name'])
-    st.success('You are facilitating board ' + str(board))
-    confirm_rerun = st.button(label='Refresh Data')
-    if confirm_rerun:
-        refresh()
+        st.warning('Please log in with the provided username and password')
+        st.stop()
 
 
 df = get_sql('budget_lb' + str(board))
@@ -717,7 +726,7 @@ def tax_auto_long():
         # conn.commit()
 
         role_tax = ['CRA-HV', 'CRA-MHA', 'CRA-MV', 'DP','EM','ENGO','F', 'FP','FN','I','J','LD','LEF','M','PUC','PH','PP','TA', 'WW']
-        role_uni_tax = [-1,-3,-2,-1,-1,-5,-4,-5,-2,-2,-2,-4,-6,-4,1,4,0,-1,-1,-1] #the total sum of money to be added or removed from the role during the tax section
+        role_uni_tax = [2,0,1,1,1,1,-1,3,0,-1,0,0,-1,1,6,3,0,7,0,0] #the total sum of money to be added or removed from the role during the tax section
 
 
         curA = conn.cursor()
@@ -755,7 +764,7 @@ def voting_status():
     df_vote = df[['r'+str(g_round)+'_vote']]
     #df_vote.set_index('role',inplace=True)
     df_vote.rename(index=user_dict, inplace=True)
-    st.dataframe(df_vote)
+    st.dataframe(df_vote, use_container_width=True)
     def end_current_session():
         curA = conn.cursor()
         curA.execute("UPDATE frc_long_variables SET r%s_vote_override=%s WHERE board=%s",(int(g_round),True,int(board)))
@@ -765,9 +774,8 @@ def voting_status():
         st.success('Voting results are now available')
         time.sleep(2)
 
-    end_vote_session = st.button(label='End current vote session and show results')
-    if end_vote_session:
-        end_current_session()
+    end_vote_session = st.button(label='End current vote session and show results',on_click=end_current_session)
+
 
     st.subheader('Vote results (preview)')
     try:
@@ -789,7 +797,7 @@ def voting_status():
                             vote_g_round.append(r)
         df_vote_result = pd.DataFrame(zip(vote, official, vote_g_round), columns=['Votes', 'Official', 'Game round'])
         sns.set_theme(style='darkgrid', palette='colorblind')
-        fig = sns.catplot(data=df_vote_result, x='Votes', col='Official', kind='count', row='Game round',size=5,aspect=2)
+        fig = sns.catplot(data=df_vote_result, x='Votes', col='Official', kind='count', row='Game round')
         st.pyplot(fig)
     except:
         st.info('No result to show yet, keep refreshing the data')
@@ -826,9 +834,9 @@ if admin_phase_dict[set_phase] is not None:
 
 st.markdown('''___''')
 st.subheader('Miro board ' + str(int(board)))
-miro_dict = {1:['https://miro.com/app/live-embed/uXjVOJ_4_5c=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOJ_4_5c=/?invite_link_id=148561260422'],
-             2:['https://miro.com/app/live-embed/uXjVOR_gfI0=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_gfI0=/?invite_link_id=53493355924'],
-             3:['https://miro.com/app/live-embed/uXjVOR_g16s=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_g16s=/?invite_link_id=349135164503'],
+miro_dict = {1:['https://miro.com/app/live-embed/uXjVPBmsT1M=/?moveToViewport=-9072,-6902,6632,5731&embedId=365072173830&embedAutoplay=true','https://miro.com/app/board/uXjVPBmsT1M=/?share_link_id=948326069198'],
+             2:['https://miro.com/app/live-embed/uXjVPBmsSb4=/?moveToViewport=-9053,-7224,6766,5721&embedId=428245309785&embedAutoplay=true','https://miro.com/app/board/uXjVPBmsSb4=/?share_link_id=478140142614'],
+             3:['https://miro.com/app/live-embed/uXjVPBmsTmg=/?moveToViewport=-10463,-6096,8785,4266&embedId=26206919528&embedAutoplay=true','https://miro.com/app/board/uXjVPBmsTmg=/?share_link_id=27320976313'],
              4:['https://miro.com/app/live-embed/uXjVOR_hQ8o=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_hQ8o=/?invite_link_id=471512594109'],
              5:['https://miro.com/app/live-embed/uXjVOR_h058=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_h058=/?invite_link_id=575464384272'],
              6:['https://miro.com/app/live-embed/uXjVOR_h1vw=/?moveToViewport=-23351,-9416,27515,14305&embedAutoplay=true','https://miro.com/app/board/uXjVOR_h1vw=/?invite_link_id=87971323805']}

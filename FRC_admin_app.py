@@ -220,6 +220,12 @@ def process_bid(measure,biders,amounts):
     for role, amount in zip(biders,amounts):
         curA.execute('UPDATE budget_lb%s SET cb=cb-%s WHERE role = %s;', (int(board),amount,role))
         curA.execute('UPDATE budget_lb%s SET delta=-%s WHERE role = %s;', (int(board),amount,role))
+
+    if (measure in df_m[df_m['type']=='Structural'].index):
+        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), sum(amounts)-2, 'LEF'))
+        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), 2, 'ENGO'))
+
+
     conn.commit()
     st.success('Bid processed')
     time.sleep(2)
@@ -246,7 +252,7 @@ def bidding_section():
                 with col2:
                     biders = list(df[df['r' + str(g_round) + '_measure'] == measure].index)
                     amounts = df[df['r' + str(g_round) + '_measure'] == measure]['r' + str(g_round) + '_bid'].to_list()
-                    st.caption('Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(biders, amounts)]))
+                    st.caption('Bidders: ' + ',  '.join([user_dict[p] + ': \$' + str(b) for p, b in zip(biders, amounts)]))
                     try:
                         st.progress(int(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
                             'r' + str(g_round) + '_bid'].to_list()]) / df_m.loc[measure, 'cost'] * 100))
@@ -265,7 +271,7 @@ def bidding_section():
                     biders = list(df[df['r' + str(g_round) + '_measure'] == measure].index)
                     amounts = df[df['r' + str(g_round) + '_measure'] == measure]['r' + str(g_round) + '_bid'].to_list()
                     st.caption(
-                        'Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(biders, amounts)]))
+                        'Bidders: ' + ',  '.join([user_dict[p] + ': \$' + str(b) for p, b in zip(biders, amounts)]))
                     try:
                         st.progress(int(sum([int(i) for i in df[df['r' + str(g_round) + '_measure'] == measure][
                             'r' + str(g_round) + '_bid'].to_list()]) / df_m.loc[measure, 'cost'] * 100))
@@ -287,7 +293,7 @@ def bidding_section():
                                   int(df_m.loc[m_row['measure'], 'cost'])))
             with col2:
                 st.caption(
-                    'Bidders: ' + ',  '.join([user_dict[p] + ': $' + str(b) for p, b in zip(m_row['biders'], m_row['amounts'])]))
+                    'Bidders: ' + ',  '.join([user_dict[p] + ': \$' + str(b) for p, b in zip(m_row['biders'], m_row['amounts'])]))
 
                 st.progress(int(sum(m_row['amounts']) / df_m.loc[m_row['measure'], 'cost'] * 100))
             with col3:

@@ -143,7 +143,8 @@ if df_authen.loc[username,'level'] > 1:
     st.header('Game phase')
     sub_col1, sub_col2, sub_col3 = st.columns(3)
     with sub_col1:
-        st.text(phase_dict[int(df_v.loc[board, 'phase'])])
+        st.markdown('<p style="font-size: 20px; color:rgb(58, 134, 255);">' + str(phase_dict[int(df_v.loc[board, 'phase'])]) + '</p>',unsafe_allow_html=True)
+        #st.subheader(phase_dict[int(df_v.loc[board, 'phase'])])
     with sub_col2:
         set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='Set phase to:')]
     with sub_col3:

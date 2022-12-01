@@ -223,7 +223,7 @@ def process_bid(measure,biders,amounts):
         curA.execute('UPDATE budget_lb%s SET delta=-%s WHERE role = %s;', (int(board),amount,role))
 
     if (measure in df_m[df_m['type']=='Structural'].index):
-        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), sum(amounts)-2, 'LEF'))
+        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), int((sum(amounts)-2)/4), 'LEF'))
         curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), 2, 'ENGO'))
 
 
@@ -302,7 +302,7 @@ def bidding_section():
 
 
 def transaction_management():
-    st.markdown("""___""")
+    #st.markdown("""___""")
     with st.expander('Transactions help'):
         st.markdown(read_markdown_file('checklists/transaction.md'))
     st.header('Transaction management')
@@ -375,6 +375,54 @@ def transaction_management():
             st.dataframe(df_p_log)
         else:
             st.info('No transaction to show')
+
+
+def secret_transaction_management():
+    #st.markdown("""___""")
+    st.header('Secret Transaction management')
+    confirm_rerun = st.button(label='Refresh Data', key='transaction section')
+    if confirm_rerun:
+        refresh()
+
+    def transaction_revert(id):
+        revert_query_sender = ("UPDATE budget_lb%s SET cb=cb+%s WHERE role=%s;")
+        revert_query_receiver = ("UPDATE budget_lb%s SET cb=cb-%s WHERE role=%s;")
+        curA = conn.cursor()
+        curA.execute(revert_query_sender, (int(board),int(df_payement.loc[id,'Transaction total']),df_payement.loc[id,'Sender']))
+        curA.execute(revert_query_receiver, (int(board),int(df_payement.loc[id, 'Transaction total']), df_payement.loc[id, 'Receiving party']))
+        curA.execute("UPDATE payment%s SET reverted=True WHERE id=%s;",(board,id))
+        conn.commit()
+        with st.spinner('Reverting transaction'):
+            time.sleep(2)
+        st.success('Transaction reverted')
+        time.sleep(2)
+        st.experimental_rerun()
+
+
+    df_payement = get_sql('payment' + str(board))
+    est = pytz.timezone('EST')
+    df_payement = df_payement.rename(
+        columns={'datetime': 'Timestamp', 'from_user': 'Sender', 'amount': 'Transaction total',
+                 'to_user': 'Receiving party'})
+    if not df_payement.empty:
+        df_payement['Timestamp'] = df_payement['Timestamp'].dt.tz_convert('EST').dt.strftime('%B %d, %Y, %r')
+        df_payement.set_index('id',inplace=True)
+        st.dataframe(df_payement)
+    else:
+        st.info('No transaction history')
+
+
+    st.subheader('Transaction modification')
+    st.markdown('Revert transaction')
+    col1, col2 = st.columns(2)
+    with col1:
+        trans_id = st.number_input(value=0, min_value=0, label='Transction ID')
+    with col2:
+        confirm_revert = st.button(label='Revert transaction')
+
+    if confirm_revert:
+        transaction_revert(int(trans_id))
+
 
 #flood conttrol centre
 if game_type == 'Full':
@@ -835,6 +883,9 @@ if df_authen.loc[username,'level'] == 1:
         set_phase = int(df_v.loc[board, 'phase'])
 
 budget_section()
+
+with st.expander('Secret transaction management'):
+    secret_transaction_management()
 
 if admin_phase_dict[set_phase] is not None:
     admin_phase_dict[set_phase]()

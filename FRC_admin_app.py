@@ -23,7 +23,7 @@ def styler(val):
     return 'color: %s' % color
 
 with st.sidebar:
-    game_type = st.radio(label='Game type', options=['Simplified','Full'], index=1)
+    game_type = st.radio(label='Game type', options=['Simplified','Full'], index=0)
 
 if game_type == 'Full':
     def init_connection():
@@ -62,7 +62,7 @@ else:
 user_dict_inv= {v:k for k,v in user_dict.items()}
 
 #phase_dict = {2: 'Phase 1A: FRM Measure bidding',3: 'Phase 1B: Transactions',4: 'Phase 2: Flood and damage analysis',0: '(Pre Phase 3) Adjusting tax rate (for government only) ', 1: 'Phase 3: Updating Budget', 5: 'Phase 4: Vote'}
-phase_dict = {2: 'Phase 1: FRM Measure bidding',4: 'Phase 2: Flood and damage analysis', 1: 'Phase 3: Updating Budget', 5: 'Phase 4: Vote'}
+phase_dict = {1: 'Phase 1: FRM Measure bidding',2: 'Phase 2: Flood and damage analysis', 3: 'Phase 3: Updating Budget', 4: 'Phase 4: Vote'}
 phase_dict_inv = {v:k for k, v in phase_dict.items()}
 
 
@@ -218,6 +218,8 @@ def process_bid(measure,biders,amounts):
     curA = conn.cursor()
     curA.execute('INSERT INTO impl_measures%s VALUES (%s,%s,%s,%s);',(int(board),measure,biders,amounts,int(g_round)))
     curA.execute('UPDATE budget_lb%s SET r%s_measure = NULL, r%s_bid = NULL WHERE role=ANY(%s);',(int(board),int(g_round),int(g_round),biders))
+
+    conn.commit()
     for role, amount in zip(biders,amounts):
         curA.execute('UPDATE budget_lb%s SET cb=cb-%s WHERE role = %s;', (int(board),amount,role))
         curA.execute('UPDATE budget_lb%s SET delta=-%s WHERE role = %s;', (int(board),amount,role))
@@ -226,8 +228,10 @@ def process_bid(measure,biders,amounts):
         curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), int((sum(amounts)-2)/4), 'LEF'))
         curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), 2, 'ENGO'))
 
-
-    conn.commit()
+    try:
+        conn.commit()
+    except:
+        pass
     st.success('Bid processed')
     time.sleep(2)
 
@@ -753,18 +757,29 @@ def tax_auto_short():
     st.subheader('Process tax and payment')
 
     def process_all():
+        role_tax = ['P','EM','CSO','M','WR','F','LEF','LD']
+        role_uni_tax = [1,2,0,7,0,1,0,0]  # the total sum of money to be added or removed from the role during the tax section
+
+        for role, tax in zip(role_tax, role_uni_tax):
+            curA = conn.cursor()
+            curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), tax, [role]))
+            curA.execute('UPDATE budget_lb%s SET delta=%s WHERE role=ANY(%s);', (int(board), tax, [role]))
+            conn.commit()
+
         curA = conn.cursor()
-        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);',(int(board),2,['P','EM','CSO','F']))
-        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), 1, ['WR','LD']))
-        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), 3, ['M']))
-        curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s',(int(g_round),True,int(board)))
+        curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s', (int(g_round), True, int(board)))
         conn.commit()
 
         with st.success('All payments processed'):
             time.sleep(2)
 
+    if df_v.loc[int(board), 'r' + str(g_round) + '_taxed']:
+        st.success('Tax and mandatory payments are already processed for this round')
+    else:
+        st.info('Taxes are not processed yet!')
 
-    st.button(label="Process tax and payment",disabled=df_v.loc[int(board),'r'+str(g_round)+'_taxed'],on_click=process_all)
+    st.button(label="Process tax and payment", disabled=df_v.loc[int(board), 'r' + str(g_round) + '_taxed'],
+              on_click=process_all)
 
 
 def tax_auto_long():
@@ -783,13 +798,13 @@ def tax_auto_long():
         role_tax = ['CRA-HV', 'CRA-MHA', 'CRA-MV', 'DP','EM','ENGO','F', 'FP','FN','I','J','LD','LEF','M','PUC','PH','PP','TA', 'WW']
         role_uni_tax = [2,0,1,1,1,1,-1,3,0,-1,0,0,-1,1,6,3,0,7,0,0] #the total sum of money to be added or removed from the role during the tax section
 
-
-        curA = conn.cursor()
         for role, tax in zip(role_tax,role_uni_tax):
+            curA = conn.cursor()
             curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);',(int(board), tax, [role]))
             curA.execute('UPDATE budget_lb%s SET delta=%s WHERE role=ANY(%s);', (int(board), tax, [role]))
             conn.commit()
 
+        curA = conn.cursor()
         curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s', (int(g_round), True, int(board)))
         conn.commit()
 
@@ -869,16 +884,43 @@ with st.expander('Game progression help'):
     st.markdown('but you can see the options ahead of time by selecting via the phase selector in the main page (see image below):')
     st.image('checklists/phase settings.JPG')
 
-admin_phase_dict = {0:None,1:tax_auto_long,2:bidding_section,3:transaction_management,4:flood_centre, 5:voting_status}
+def progress_game(direction):
+    prog_counter = int(df_v.loc[board, 'prog_counter'])
+    dict_prog = {0: [1,1], 1: [1,2], 2: [1,3], 3: [1,4], 4: [2,1], 5: [2,2], 6: [2,3], 7: [2,4], 8: [3,1], 9: [3,2], 10: [3,3], 11: [3,4]}
+    if direction == 'forward':
+        prog_counter += 1
+    else:
+        prog_counter -= 1
+    curA = conn.cursor()
+    curA.execute("UPDATE frc_long_variables SET phase=%s WHERE board=%s", (dict_prog[prog_counter][1], board))
+    curA.execute("UPDATE frc_long_variables SET round=%s WHERE board=%s", (dict_prog[prog_counter][0], board))
+    conn.commit()
+    curA = conn.cursor()
+    curA.execute("UPDATE frc_long_variables SET prog_counter=%s WHERE board=%s",(prog_counter,board))
+    conn.commit()
+    st.success('We progressed to next phase!')
+
+
+admin_phase_dict = {0:None,3:tax_auto_short,1:bidding_section,5:transaction_management,2:flood_centre, 4:voting_status}
 if df_authen.loc[username,'level'] == 1:
     with st.sidebar:
         st.subheader('Phase progression setting')
-        phase_progress_type = st.radio(label='Method of showing the phase settings', options=['Manual select','Follow the current phase'],index=1)
+        phase_progress_type = st.radio(label='Method of showing the phase settings', options=['Manual select','Progression mode','Follow the current phase'],index=1)
 
     if phase_progress_type == 'Manual select':
         st.subheader('Phase settings')
         st.caption('Does not change the phase, but setting are adjustable ahead of time')
         set_phase = phase_dict_inv[st.selectbox(options=phase_dict.values(), label='See settings for:')]
+    elif phase_progress_type == 'Progression mode':
+        set_phase = int(df_v.loc[board, 'phase'])
+        prog_counter = int(df_v.loc[board,'prog_counter'])
+        colu1, colu2 = st.columns(2)
+
+        with colu1:
+            st.button(label='Return',on_click=progress_game,kwargs={'direction':'return'},help='Click here to go back to the last stage',disabled=prog_counter==0)
+
+        with colu2:
+            st.button(label='Progress game',on_click=progress_game,kwargs={'direction':'forward'},help='Click here to progress to next stage',disabled=prog_counter==11)
     else:
         set_phase = int(df_v.loc[board, 'phase'])
 

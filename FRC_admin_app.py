@@ -437,11 +437,11 @@ def secret_transaction_management():
 #flood conttrol centre
 if game_type == 'Full':
     damage_flood_dict = {'Ice jam winter flooding':{'light': ['ENGO', 'EM', 'F'], 'heavy':['CRA-MHA']}, 'Freshet flood':{'light':['EM','M','CRA-MV'],'heavy':['CRA-HV','CRA-MHA']},'Storm surge winter flooding':{'light':['M','WW','DP'],'heavy':['CRA-MHA','CRA-HV','LBO']},
-                     'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['DP'],'heavy':['CRA-MV']},'Future sea level rise':{'light':['CRA-MHA','M','CRA-HV',],'heavy':['WW','LBO','DP']}}
+                     'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['DP'],'heavy':['CRA-MV']},'Future sea level rise':{'light':['CRA-MHA','M','CRA-HV',],'heavy':['WW','LBO','DP']},'No flooding':{'light':[],'heavy':[]}}
     qulified_for_DRP = ['CRA-HV', 'CRA-MV', 'CRA-MHA', 'ENGO', 'F']
 else:
     damage_flood_dict = {'Ice jam winter flooding':{'light': ['EM'], 'heavy':[]}, 'Freshet flood':{'light':['EM','M'],'heavy':['WR']},'Storm surge winter flooding':{'light':['P','M'],'heavy':['WR']},
-                     'Convective summer storm':{'light':['EM','F'],'heavy':['M']},'Minor localized flooding':{'light':['CSO'],'heavy':[]},'Future sea level rise':{'light':['M'],'heavy':['P','WR']}}
+                     'Convective summer storm':{'light':['EM','F'],'heavy':['M']},'Minor localized flooding':{'light':['CSO'],'heavy':[]},'Future sea level rise':{'light':['M'],'heavy':['P','WR']},'No flooding':{'light':[],'heavy':[]}}
     qulified_for_DRP = ['CSO','F','WR']
 def flood_centre():
     def flooding_random():

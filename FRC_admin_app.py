@@ -440,7 +440,7 @@ if game_type == 'Full':
                      'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['DP'],'heavy':['CRA-MV']},'Future sea level rise':{'light':['CRA-MHA','M','CRA-HV',],'heavy':['WW','LBO','DP']}}
 else:
     damage_flood_dict = {'Ice jam winter flooding':{'light': ['EM'], 'heavy':[]}, 'Freshet flood':{'light':['EM','M'],'heavy':['WR']},'Storm surge winter flooding':{'light':['P','M'],'heavy':['WR']},
-                     'Convective summer storm':{'light':['EM','F','CRA-MHA','CRA-MV','CRA-HV','DP','LBO'],'heavy':['M']},'Minor localized flooding':{'light':['CSO'],'heavy':[]},'Future sea level rise':{'light':['M'],'heavy':['P','WR']}}
+                     'Convective summer storm':{'light':['EM','F'],'heavy':['M']},'Minor localized flooding':{'light':['CSO'],'heavy':[]},'Future sea level rise':{'light':['M'],'heavy':['P','WR']}}
 
 qulified_for_DRP = ['CRA-HV','CRA-MV','CRA-MHA','ENGO','F']
 def flood_centre():

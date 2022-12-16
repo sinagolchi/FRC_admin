@@ -215,23 +215,29 @@ def budget_section():
                 st.metric(label=user_dict[role], value='$' + str(df.loc[role, 'cb']), delta=int(df.loc[role, 'delta']))
 
 def process_bid(measure,biders,amounts):
-    curA = conn.cursor()
-    curA.execute('INSERT INTO impl_measures%s VALUES (%s,%s,%s,%s);',(int(board),measure,biders,amounts,int(g_round)))
-    curA.execute('UPDATE budget_lb%s SET r%s_measure = NULL, r%s_bid = NULL WHERE role=ANY(%s);',(int(board),int(g_round),int(g_round),biders))
-
-    conn.commit()
-    for role, amount in zip(biders,amounts):
-        curA.execute('UPDATE budget_lb%s SET cb=cb-%s WHERE role = %s;', (int(board),amount,role))
-        curA.execute('UPDATE budget_lb%s SET delta=-%s WHERE role = %s;', (int(board),amount,role))
-
-    if (measure in df_m[df_m['type']=='Structural'].index):
-        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), int((sum(amounts)-2)/4), 'LEF'))
-        curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), 2, 'ENGO'))
-
     try:
+        curA = conn.cursor()
+        curA.execute('INSERT INTO impl_measures%s VALUES (%s,%s,%s,%s);',(int(board),measure,biders,amounts,int(g_round)))
+        curA.execute('UPDATE budget_lb%s SET r%s_measure = NULL, r%s_bid = NULL WHERE role=ANY(%s);',(int(board),int(g_round),int(g_round),biders))
         conn.commit()
+
+        for role, amount in zip(biders,amounts):
+            curA = conn.cursor()
+            curA.execute('UPDATE budget_lb%s SET cb=cb-%s WHERE role = %s;', (int(board),amount,role))
+            curA.execute('UPDATE budget_lb%s SET delta=-%s WHERE role = %s;', (int(board),amount,role))
+            conn.commit()
+
+        if (measure in df_m[df_m['type']=='Structural'].index):
+            curA = conn.cursor()
+            curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), int((sum(amounts)-2)/4), 'LEF'))
+            curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role = %s;', (int(board), 2, 'ENGO'))
+            conn.commit()
     except:
+        st.error('Bid processing failed, try again')
         pass
+
+
+
     st.success('Bid processed')
     time.sleep(2)
 
@@ -685,7 +691,7 @@ def dev_tools():
                 curA.execute("UPDATE budget_lb%s SET r1_tax=NULL, r2_tax=NULL, r3_tax=NULL WHERE role=%s;",(int(board),user))
 
             curA.execute("UPDATE budget_lb%s SET r1_m_payment=NULL, r2_m_payment= NULL, r3_m_payment = NULL WHERE role='J' OR role= 'I';",(int(board),))
-            curA.execute("UPDATE frc_long_variables SET municipal_tax = 1, provincial_tax = 1, federal_tax = 1, r1_vote_override = false, r2_vote_override = false, r3_vote_override = false, phase = 2, power_price = 1, r1_taxed=FALSE, r2_taxed=FALSE, r3_taxed=FALSE WHERE board = %s", [int(board)])
+            curA.execute("UPDATE frc_long_variables SET municipal_tax = 1, provincial_tax = 1, federal_tax = 1, r1_vote_override = false, r2_vote_override = false, r3_vote_override = false, phase = 2, power_price = 1, r1_taxed=FALSE, r2_taxed=FALSE, r3_taxed=FALSE,prog_counter= 0 WHERE board = %s", [int(board)])
             curA.execute("DELETE FROM impl_measures%s", [int(board)])
             conn.commit()
             with st.spinner('Reinitializing the main database'):
@@ -759,19 +765,21 @@ def tax_auto_short():
     def process_all():
         role_tax = ['P','EM','CSO','M','WR','F','LEF','LD']
         role_uni_tax = [1,2,0,7,0,1,0,0]  # the total sum of money to be added or removed from the role during the tax section
+        try:
+            for role, tax in zip(role_tax, role_uni_tax):
+                curA = conn.cursor()
+                curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), tax, [role]))
+                curA.execute('UPDATE budget_lb%s SET delta=%s WHERE role=ANY(%s);', (int(board), tax, [role]))
+                conn.commit()
 
-        for role, tax in zip(role_tax, role_uni_tax):
             curA = conn.cursor()
-            curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);', (int(board), tax, [role]))
-            curA.execute('UPDATE budget_lb%s SET delta=%s WHERE role=ANY(%s);', (int(board), tax, [role]))
+            curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s', (int(g_round), True, int(board)))
             conn.commit()
 
-        curA = conn.cursor()
-        curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s', (int(g_round), True, int(board)))
-        conn.commit()
-
-        with st.success('All payments processed'):
-            time.sleep(2)
+            with st.success('All payments processed'):
+                time.sleep(2)
+        except:
+            pass
 
     if df_v.loc[int(board), 'r' + str(g_round) + '_taxed']:
         st.success('Tax and mandatory payments are already processed for this round')
@@ -798,15 +806,18 @@ def tax_auto_long():
         role_tax = ['CRA-HV', 'CRA-MHA', 'CRA-MV', 'DP','EM','ENGO','F', 'FP','FN','I','J','LD','LEF','M','PUC','PH','PP','TA', 'WW']
         role_uni_tax = [2,0,1,1,1,1,-1,3,0,-1,0,0,-1,1,6,3,0,7,0,0] #the total sum of money to be added or removed from the role during the tax section
 
-        for role, tax in zip(role_tax,role_uni_tax):
-            curA = conn.cursor()
-            curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);',(int(board), tax, [role]))
-            curA.execute('UPDATE budget_lb%s SET delta=%s WHERE role=ANY(%s);', (int(board), tax, [role]))
-            conn.commit()
+        try:
+            for role, tax in zip(role_tax,role_uni_tax):
+                curA = conn.cursor()
+                curA.execute('UPDATE budget_lb%s SET cb=cb+%s WHERE role=ANY(%s);',(int(board), tax, [role]))
+                curA.execute('UPDATE budget_lb%s SET delta=%s WHERE role=ANY(%s);', (int(board), tax, [role]))
+                conn.commit()
 
-        curA = conn.cursor()
-        curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s', (int(g_round), True, int(board)))
-        conn.commit()
+            curA = conn.cursor()
+            curA.execute('UPDATE frc_long_variables SET r%s_taxed=%s WHERE board=%s', (int(g_round), True, int(board)))
+            conn.commit()
+        except:
+            pass
 
 
 
@@ -836,13 +847,16 @@ def voting_status():
     df_vote.rename(index=user_dict, inplace=True)
     st.dataframe(df_vote, use_container_width=True)
     def end_current_session():
-        curA = conn.cursor()
-        curA.execute("UPDATE frc_long_variables SET r%s_vote_override=%s WHERE board=%s",(int(g_round),True,int(board)))
-        conn.commit()
-        with st.spinner('Revealing results of the voting session'):
-            time.sleep(1)
-        st.success('Voting results are now available')
-        time.sleep(2)
+        try:
+            curA = conn.cursor()
+            curA.execute("UPDATE frc_long_variables SET r%s_vote_override=%s WHERE board=%s",(int(g_round),True,int(board)))
+            conn.commit()
+            with st.spinner('Revealing results of the voting session'):
+                time.sleep(1)
+            st.success('Voting results are now available')
+            time.sleep(2)
+        except:
+            pass
 
     end_vote_session = st.button(label='End current vote session and show results',on_click=end_current_session)
 

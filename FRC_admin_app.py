@@ -23,7 +23,7 @@ def styler(val):
     return 'color: %s' % color
 
 with st.sidebar:
-    game_type = st.radio(label='Game type', options=['Simplified','Full'], index=0)
+    game_type = st.radio(label='Game type', options=['Simplified','Full'], index=1)
 
 if game_type == 'Full':
     def init_connection():
@@ -215,6 +215,7 @@ def budget_section():
                 st.metric(label=user_dict[role], value='$' + str(df.loc[role, 'cb']), delta=int(df.loc[role, 'delta']))
 
 def process_bid(measure,biders,amounts):
+
     try:
         curA = conn.cursor()
         curA.execute('INSERT INTO impl_measures%s VALUES (%s,%s,%s,%s);',(int(board),measure,biders,amounts,int(g_round)))
